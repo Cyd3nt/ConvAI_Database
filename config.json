@@ -1,7 +1,7 @@
 {
     "host" : "",
     "port" : "5432",
-    "user" : "root",
-    "password" : "0123456789",
-    "database" : "convai_user01"
+    "user" : "",
+    "password" : "",
+    "database" : ""
 }
