@@ -710,3 +710,26 @@ def get_backstory(char_id : str) -> str:
             print("Error in executing the query for get_backstory : ",e)
     
     return r
+
+def get_character_index_file(char_id : str) -> str:
+    '''
+    Function to retrieve character's doc store filename
+    Arguments:
+        char_id         : character's id
+    Returns :
+        str : will return the character's doc store filename as a string , if not found will return -1
+    '''
+    r = "-1"
+    GET_CHARACTER_DOCSTORE = """ SELECT document_store_file_link FROM character_metadata WHERE character_id = '{}' AND version=0;"""
+    with connect_to_database(1) as conn :
+        try:
+            query = GET_CHARACTER_DOCSTORE.format(char_id)
+            query_results = execute_and_return_results(query,conn)
+            #print("Query executed successfully")
+            if len(query_results)>0:
+                r = query_results[0]["document_store_file_link"]
+        except Exception as e:
+            #print(query)
+            print("Error in executing the query for get_character_index_file : ",e)
+    
+    return r
