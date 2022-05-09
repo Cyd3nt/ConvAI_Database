@@ -1,5 +1,7 @@
 from DB_united.db_utilities import connect_to_database, execute_and_return_results
 
+remove_special_character01 = lambda a : a.replace("'","''")
+
 def register_user(user_id : str, username : str, email : str) -> int:
     '''
     Function to register the new user in the database
@@ -14,6 +16,7 @@ def register_user(user_id : str, username : str, email : str) -> int:
     r = -1
     with connect_to_database(1) as conn :
         try:
+            username = remove_special_character01(username)
             query = INSERT_USER_DETAILS.format(user_id,username,email)
             cursor_obj = conn.cursor()
             cursor_obj.execute(query)
@@ -22,8 +25,7 @@ def register_user(user_id : str, username : str, email : str) -> int:
             r = 0
         except Exception as e:
             #print(query)
-            print("Error in executing the query for register_user : ",e)
-            
+            print("Error in executing the query for register_user : ",e) 
     return r
 
 def register_api_key(user_id : str, email : str, api_key : str) -> int:
@@ -67,6 +69,10 @@ def log_user_activity(api_key : str, service_accessed : str, source : str, user_
     r = -1
     with connect_to_database(1) as conn:
         try:
+            user_input = remove_special_character01(user_input)
+            source = remove_special_character01(source)
+            service_accessed = remove_special_character01(service_accessed)
+            
             query = INSERT_USER_ACTIVITY.format(api_key, service_accessed, source, user_input)
             cursor_obj = conn.cursor()
             cursor_obj.execute(query)
@@ -155,7 +161,7 @@ def check_apiKey_existence(api_key : str) -> int:
         except Exception as e:
             #print(query)
             print("Error in executing the query for check_apiKey_existence : ",e)
-    
+            
     return r
 
 def get_all_personal_characters(user_id : str) -> list:
@@ -180,6 +186,7 @@ def get_all_personal_characters(user_id : str) -> list:
         except Exception as e:
             #print(query)
             print("Error in executing the query for get_all_personal_characters : ",e)
+            
     return data
 
 def get_character_details(char_id : str) -> dict:
@@ -225,9 +232,11 @@ def get_doc_store_file_link(char_id : str) -> str:
 
             if len(query_results) > 0:
                 doc_store_file_link = query_results[0]["document_store_file_link"]
+            
+            if doc_store_file_link == '-1' or len(query_results)==0:
+                    raise ValueError('Doc store file link not available!')
         except Exception as e:
-            #print(query)
-            print("Error in executing the query for get_doc_store_file_link : ",e)
+            raise Exception("Error in executing the query for get_doc_store_file_link : ",e)
     return doc_store_file_link
 
 def get_all_characters_from_collection(collection_name : str) -> list:
@@ -242,7 +251,8 @@ def get_all_characters_from_collection(collection_name : str) -> list:
     RETRIEVE_GET_ALL_CHARACTERS_FROM_COLLECTION = """ SELECT * FROM all_characters WHERE collection_name = '{}' ; """
     data = []
     with connect_to_database(1) as conn:
-        try:   
+        try:
+            collection_name = remove_special_character01(collection_name)   
             query = RETRIEVE_GET_ALL_CHARACTERS_FROM_COLLECTION.format(collection_name)
             query_results = execute_and_return_results(query,conn)
 
@@ -335,9 +345,7 @@ def insert_new_character(
     '''
 
     char_id = "-1"
-    state_names = "{" + ",".join(state_names) + "}"
-    state_links = "{" + ",".join(state_links) + "}"
-
+    
     INSERT_CHARACTER_INTO_ALLCHARACTERS = """ INSERT INTO all_characters 
                                               (character_name, collection_name, user_id, model_type, state_names, state_links, listing, voice_type, voice_pitch, blockchain, contract_address, mint_address, owner_address) 
                                               VALUES
@@ -348,12 +356,18 @@ def insert_new_character(
     
 
     with connect_to_database(1) as conn:
-        try:   
-            query01 = INSERT_CHARACTER_INTO_ALLCHARACTERS.format(character_name, collection_name, user_id, model_type, state_names, state_links, listing, voice_type, voice_pitch, blockchain, contract_address, mint_address, owner_address)
-            cursor_obj = conn.cursor()
-            cursor_obj.execute(query01)
-            cursor_obj.close()
+        try:
+            state_names = [remove_special_character01(state) for state in state_names]
+            state_names = "{" + ",".join(state_names) + "}"
+            state_links = "{" + ",".join(state_links) + "}"
+            
+            character_name = remove_special_character01(character_name)
+            collection_name = remove_special_character01(collection_name)
 
+            query01 = INSERT_CHARACTER_INTO_ALLCHARACTERS.format(character_name, collection_name, user_id, model_type, state_names, state_links, listing, voice_type, voice_pitch, blockchain, contract_address, mint_address, owner_address)
+            with conn.cursor() as cursor_obj:
+                cursor_obj.execute(query01)
+            
             query02 = RETRIEVE_CHARACTERID_FROM_ALLCHARACTERS.format(character_name, user_id, collection_name)
             query_results = execute_and_return_results(query02,conn)
 
@@ -386,7 +400,6 @@ def get_user_count() -> int:
             print("Error in executing the query for get_user_count : ",e)
     return usercount
 
-#================================================================================================================
 def insert_feedback(username : str, user_email : str, rating : str, feedback : str, page : str) -> int:
     '''
     Function to insert user feedback into the database
@@ -403,6 +416,8 @@ def insert_feedback(username : str, user_email : str, rating : str, feedback : s
     r = -1
     with connect_to_database(1) as conn :
         try:
+            feedback = remove_special_character01(feedback)
+
             query = INSERT_FEEDBACK.format(username, user_email, rating, feedback, page)
             cursor_obj = conn.cursor()
             cursor_obj.execute(query)
@@ -428,10 +443,15 @@ def update_character_metadata(char_id : str, backstory : str, doc_store_file_lin
     '''
     INSERT_BACKSTORY= """  CALL update_backstory_version_charactermetadata(input_character_id => '{}'::uuid);
                            INSERT INTO character_metadata (character_id, backstory, document_store_file_link, characteristics ) VALUES ('{}','{}','{}','{}');"""
-    characteristics = "{" + ",".join(characteristics) + "}"
+    if isinstance(characteristics, list):
+        characteristics = [remove_special_character01(characteristic) for characteristic in characteristics]
+        characteristics = "{" + ",".join(characteristics) + "}"
+
     r = -1
     with connect_to_database(1) as conn :
         try:
+            backstory = remove_special_character01(backstory)
+
             query = INSERT_BACKSTORY.format(char_id, char_id, backstory, doc_store_file_link, characteristics)
             cursor_obj = conn.cursor()
             cursor_obj.execute(query)
@@ -471,10 +491,15 @@ def update_character_details(updated_data_dict : dict ) -> int :
     
     with connect_to_database(1) as conn:
         try:
+            updated_data_dict['character_name'] = remove_special_character01(updated_data_dict['character_name'])
+            updated_data_dict['collection_name'] = remove_special_character01(updated_data_dict['collection_name'])
+                                                    
+                                                    
             if isinstance(updated_data_dict["state_links"], list):
                 updated_data_dict["state_links"] = "{" + ",".join(updated_data_dict["state_links"]) + "}"
 
             if isinstance(updated_data_dict["state_names"], list):
+                updated_data_dict["state_names"] = [remove_special_character01(state) for state in updated_data_dict["state_names"]]
                 updated_data_dict["state_names"] = "{" + ",".join(updated_data_dict["state_names"]) + "}"
 
             query = UPDATE_CHARACTER_DETAILS.format(updated_data_dict['character_name'], updated_data_dict['collection_name'], 
@@ -507,8 +532,12 @@ def add_new_word(username : str, api_key : str, word : str, pronunciation : str,
     INSERT_WORD_FINETUNING = """ INSERT INTO word_finetuning( username, api_key, word, pronunciation, status ) VALUES ('{}', '{}', '{}', '{}', '{}');"""
     r = -1
 
-    with connect_to_database(1) as conn :
+    with connect_to_database(2) as conn :
         try:
+            word = remove_special_character01(word)
+            pronunciation = remove_special_character01(pronunciation)
+            status = remove_special_character01(status)
+
             query = INSERT_WORD_FINETUNING.format(username, api_key, word, pronunciation, status)
             cursor_obj = conn.cursor()
             cursor_obj.execute(query)
@@ -533,8 +562,11 @@ def update_status_wordtuning(status : str, api_key : str, word : str) -> int:
     '''
     UPDATE_STATUS_WORD_FINETUNING = """ UPDATE word_finetuning SET status = '{}' WHERE api_key = '{}' AND word = '{}';"""
     r = -1
-    with connect_to_database(1) as conn :
+    with connect_to_database(2) as conn :
         try:
+            status = remove_special_character01(status)
+            word = remove_special_character01(word)
+
             query = UPDATE_STATUS_WORD_FINETUNING.format(status, api_key, word)
             cursor_obj = conn.cursor()
             cursor_obj.execute(query)
@@ -546,7 +578,6 @@ def update_status_wordtuning(status : str, api_key : str, word : str) -> int:
             print("Error in executing the query for update_status_wordtuning : ",e)
     
     return r
-
 
 def fetch_word_list(api_key : str) -> list:
     '''
@@ -638,6 +669,9 @@ def write_to_chat_history(char_id : str, user_id : str, user_query: str, bot_tex
 
     with connect_to_database(1) as conn :
         try:
+            user_query = remove_special_character01(user_query)
+            bot_text = remove_special_character01(bot_text)
+
             query = INSERT_CHARACTER_CHAT.format(user_id, char_id, session_id, user_query, bot_text)
             cursor_obj = conn.cursor()
             cursor_obj.execute(query)
@@ -672,10 +706,10 @@ def get_chat_history(char_id : str, user_id : str, session_id : str = "-1",from_
         try:
             query = GET_CHAT_HISTORY.format(user_id, char_id)
       
-            if to_time!="-1":
+            if to_time!=-1 and to_time!="-1":
                 query = query + GET_CHAT_HISTORY_02.format(to_time,from_time) 
     
-            if session_id!="-1":
+            if session_id!=-1 and session_id!="-1":
                 query = query + GET_CHAT_HISTORY_03.format(session_id)
 
             query = query + ";"
@@ -708,28 +742,5 @@ def get_backstory(char_id : str) -> str:
         except Exception as e:
             #print(query)
             print("Error in executing the query for get_backstory : ",e)
-    
-    return r
-
-def get_character_index_file(char_id : str) -> str:
-    '''
-    Function to retrieve character's doc store filename
-    Arguments:
-        char_id         : character's id
-    Returns :
-        str : will return the character's doc store filename as a string , if not found will return -1
-    '''
-    r = "-1"
-    GET_CHARACTER_DOCSTORE = """ SELECT document_store_file_link FROM character_metadata WHERE character_id = '{}' AND version=0;"""
-    with connect_to_database(1) as conn :
-        try:
-            query = GET_CHARACTER_DOCSTORE.format(char_id)
-            query_results = execute_and_return_results(query,conn)
-            #print("Query executed successfully")
-            if len(query_results)>0:
-                r = query_results[0]["document_store_file_link"]
-        except Exception as e:
-            #print(query)
-            print("Error in executing the query for get_character_index_file : ",e)
     
     return r
