@@ -127,14 +127,15 @@ def user_login(email : str) -> dict:
     GET_API_KEY_DETAILS = """ SELECT api_key
                           FROM (SELECT api_key, generation_timestamp AS gt FROM api_map WHERE email = '{}' ORDER BY gt DESC) AS S
                           LIMIT 1; """
-    api_key = {"api_key":"-1"}
+    api_key = {"apiKey":-1}
     with connect_to_database(1) as conn:
         try :
             query = GET_API_KEY_DETAILS.format(email)
             query_results = execute_and_return_results(query, conn)
         
             if len(query_results) > 0:
-                api_key = query_results[0]
+                api_key['apiKey'] = query_results[0]['api_key']
+
         except Exception as e:
             #print(query)
             print("Error in executing the query for user_login : ",e)
