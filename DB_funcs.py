@@ -1,4 +1,4 @@
-from DB_united.db_utilities import connect_to_database, execute_and_return_results
+from ConvAI_Database.db_utilities import connect_to_database, execute_and_return_results
 
 remove_special_character01 = lambda a : a.replace("'","''")
 
@@ -744,3 +744,30 @@ def get_backstory(char_id : str) -> str:
             print("Error in executing the query for get_backstory : ",e)
     
     return r
+
+def user_registration(uid, username, email, api_key) -> dict:
+    '''
+    Function to streamline the user's registration process
+    Arguments:
+        uid         : user id
+        username    : username
+        email       : user's mail
+        api_key     : user's api key
+    Returns :
+        dict : will return the registration status. 
+               Keyword is "status" , if 0 then it means successful, else failure. 
+               The negative int will denote at whch level it failed.
+    '''
+    user_registration = register_user(uid, username, email)
+    if user_registration == 0:
+        api_registration = register_api_key(uid, email, api_key)
+        if api_registration == 0:
+            user_activity_log = log_user_activity(api_key, "user-registration", "web-gui", str({"user_id": uid, "email": email}))
+            if user_activity_log==0:
+                return {"status":0}
+            else:
+                return {"status":-3}
+        else:
+            return {"status":-2}
+    else:
+        return {"status":-1}
