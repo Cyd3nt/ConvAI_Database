@@ -11,8 +11,8 @@ def connect_to_database(n: int) -> Any :
         Arguments : host number => which host to connect to
         Returns : the connection object to the database
     '''
-    cred_file = os.path.join(os.getcwd(),"config.cfg")
-    #cred_file = "./config.cfg"
+    #cred_file = os.path.join(os.getcwd(),"config.cfg")
+    cred_file = "ConvAI_Database/config.cfg"
     
     db_config = configparser.ConfigParser()
     db_config.read(cred_file)
