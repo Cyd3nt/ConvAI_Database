@@ -234,8 +234,8 @@ def get_doc_store_file_link(char_id : str) -> str:
             if len(query_results) > 0:
                 doc_store_file_link = query_results[0]["document_store_file_link"]
             
-            if doc_store_file_link == '-1' or len(query_results)==0:
-                    raise ValueError('Doc store file link not available!')
+            #if doc_store_file_link == '-1' or len(query_results)==0:
+            #        raise ValueError('Doc store file link not available!')
         except Exception as e:
             raise Exception("Error in executing the query for get_doc_store_file_link : ",e)
     return doc_store_file_link
