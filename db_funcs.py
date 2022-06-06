@@ -766,13 +766,13 @@ def user_registration(uid, username, email, api_key) -> dict:
         if api_registration == 0:
             user_activity_log = log_user_activity(api_key, "user-registration", "web-gui", str({"user_id": uid, "email": email}))
             if user_activity_log==0:
-                return {"status":0}
+                return {"status":"SUCCESS"}
             else:
-                return {"status":-3}
+                return {"status":"ERROR in logging the user activity."}
         else:
-            return {"status":-2}
+            return {"status":"ERROR in api registration for the user."}
     else:
-        return {"status":-1}
+        return {"status":"ERROR in creating new user."}
 
 def delete_char_ID(char_id : str) -> str :
     '''
