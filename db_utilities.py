@@ -13,6 +13,7 @@ def connect_to_database(n: int) -> Any :
     '''
     #cred_file = os.path.join(os.getcwd(),"config.cfg")
     cred_file = "ConvAI_Database/config.cfg"
+    #cred_file = "./config.cfg"
     
     db_config = configparser.ConfigParser()
     db_config.read(cred_file)

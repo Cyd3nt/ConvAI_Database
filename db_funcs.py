@@ -1,4 +1,5 @@
 from ConvAI_Database.db_utilities import connect_to_database, execute_and_return_results
+#from db_utilities import connect_to_database, execute_and_return_results
 
 remove_special_character01 = lambda a : a.replace("'","''")
 
@@ -772,3 +773,27 @@ def user_registration(uid, username, email, api_key) -> dict:
             return {"status":-2}
     else:
         return {"status":-1}
+
+def delete_char_ID(char_id : str) -> str :
+    '''
+    Function to delete the character from all_characters
+    Arguments:
+        char_id : the character_id of the character to be deleted.
+    Returns :
+        str : will return the transaction status
+            "SUCCESS" : the character is deleted
+            "ERROR : <error message>" : error encountered during the operation 
+    '''
+    DELETE_CHARACTER = """ DELETE FROM all_characters WHERE character_id = '{}';"""
+    with connect_to_database(1) as conn :
+        try:
+            query = DELETE_CHARACTER.format(char_id)
+            cursor_obj = conn.cursor()
+            cursor_obj.execute(query)
+            cursor_obj.close()
+            r = "SUCCESS"
+        except Exception as e:
+            #print(query)
+            print("Error in executing the query for delete_character : ",e)
+            r = """ ERROR: {} """.format(e)
+    return r
