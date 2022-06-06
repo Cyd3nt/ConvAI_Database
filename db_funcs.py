@@ -1,4 +1,5 @@
 from ConvAI_Database.db_utilities import connect_to_database, execute_and_return_results
+from multiprocessing import Process
 #from db_utilities import connect_to_database, execute_and_return_results
 
 remove_special_character01 = lambda a : a.replace("'","''")
@@ -18,6 +19,7 @@ def register_user(user_id : str, username : str, email : str) -> int:
     with connect_to_database(1) as conn :
         try:
             username = remove_special_character01(username)
+            email = remove_special_character01(email)
             query = INSERT_USER_DETAILS.format(user_id,username,email)
             cursor_obj = conn.cursor()
             cursor_obj.execute(query)
@@ -43,6 +45,7 @@ def register_api_key(user_id : str, email : str, api_key : str) -> int:
     r = -1
     with connect_to_database(1) as conn :
         try:
+            email = remove_special_character01(email)
             query = INSERT_NEW_API.format(user_id,email, api_key)
             cursor_obj = conn.cursor()
             cursor_obj.execute(query)
@@ -101,6 +104,7 @@ def get_api_key_info(email : str) -> str:
     api_key = "-1"
     with connect_to_database(1) as conn:
         try :
+            email = remove_special_character01(email)
             query = GET_API_KEY_DETAILS.format(email)
             query_results = execute_and_return_results(query, conn)
         
@@ -131,6 +135,7 @@ def user_login(email : str) -> dict:
     api_key = {"apiKey":-1}
     with connect_to_database(1) as conn:
         try :
+            email = remove_special_character01(email)
             query = GET_API_KEY_DETAILS.format(email)
             query_results = execute_and_return_results(query, conn)
         
@@ -419,6 +424,7 @@ def insert_feedback(username : str, user_email : str, rating : str, feedback : s
     with connect_to_database(1) as conn :
         try:
             feedback = remove_special_character01(feedback)
+            user_email = remove_special_character01(user_email)
 
             query = INSERT_FEEDBACK.format(username, user_email, rating, feedback, page)
             cursor_obj = conn.cursor()
@@ -747,6 +753,29 @@ def get_backstory(char_id : str) -> str:
     
     return r
 
+def delete_new_user(email : str)->str:
+    '''
+    Function to delete a new user from user_details, for the purpose of a rollback in case of failure in api key regstration.
+    Arguments:
+        email : the email id of the user whose record is to be deleted.
+    Returns:
+        str : "SUCCESS" / "ERROR: <>"
+    '''
+    DELETE_USER = """ DELETE FROM user_details WHERE email = '{}';"""
+    with connect_to_database(1) as conn :
+        try:
+            email = remove_special_character01(email)
+            query = DELETE_USER.format(email)
+            cursor_obj = conn.cursor()
+            cursor_obj.execute(query)
+            cursor_obj.close()
+            r = "SUCCESS"
+        except Exception as e:
+            #print(query)
+            print("Error in executing the query for delete_new_user : ",e)
+            r = """ ERROR: {} """.format(e)
+    return r
+
 def user_registration(uid, username, email, api_key) -> dict:
     '''
     Function to streamline the user's registration process
@@ -764,12 +793,13 @@ def user_registration(uid, username, email, api_key) -> dict:
     if user_registration == 0:
         api_registration = register_api_key(uid, email, api_key)
         if api_registration == 0:
-            user_activity_log = log_user_activity(api_key, "user-registration", "web-gui", str({"user_id": uid, "email": email}))
-            if user_activity_log==0:
-                return {"status":"SUCCESS"}
-            else:
-                return {"status":"ERROR in logging the user activity."}
+            return {"status":"SUCCESS"}
         else:
+            #async process
+            deleteUserProcess = Process(
+                target=delete_new_user, args=(email)
+            )
+            deleteUserProcess.start()
             return {"status":"ERROR in api registration for the user."}
     else:
         return {"status":"ERROR in creating new user."}
