@@ -827,3 +827,45 @@ def delete_char_ID(char_id : str) -> str :
             print("Error in executing the query for delete_character : ",e)
             r = """ ERROR: {} """.format(e)
     return r
+
+def get_username_from_apiKey(apiKey : str)-> str :
+    '''
+    Function to retrieve the username from the provided api key
+    Arguments:
+        apiKey : the api key of the user
+    Returns :
+        str : will return the corresponding username else -1
+    '''
+    GET_USERNAME = """ SELECT username FROM user_details WHERE user_id = (SELECT user_id FROM api_map WHERE api_key = '{}'); """
+    r = "-1"
+    with connect_to_database(1) as conn :
+        try:
+            query = GET_USERNAME.format(apiKey)
+            query_results = execute_and_return_results(query,conn)
+            if len(query_results)>0:
+                r = query_results[0]["username"]
+        except Exception as e:
+            #print(query)
+            print("Error in executing the query for get_username_from_apiKey : ",e)
+    return r
+
+def get_voice_for_character(charID : str)-> str :
+    '''
+    Function to retrieve the voice for the provided charID
+    Arguments:
+        charID : the character id 
+    Returns :
+        str : the voice of the character
+    '''
+    GET_CHARACTER_VOICE = """ SELECT voice_type FROM all_characters WHERE character_id = '{}';"""
+    r = "-1"
+    with connect_to_database(1) as conn :
+        try:
+            query = GET_CHARACTER_VOICE.format(charID)
+            query_results = execute_and_return_results(query,conn)
+            if len(query_results)>0:
+                r = query_results[0]["voice_type"]
+        except Exception as e:
+            #print(query)
+            print("Error in executing the query for get_voice_for_character : ",e)
+    return r
