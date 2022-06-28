@@ -859,7 +859,7 @@ def get_voice_for_character(charID : str)-> str :
         by default will return -1 (in case of any exception)
     '''
     GET_CHARACTER_VOICE = """ SELECT voice_type FROM all_characters WHERE character_id = '{}';"""
-    r = -1
+    r = "-1"
     with connect_to_database(1) as conn :
         try:
             query = GET_CHARACTER_VOICE.format(charID)
