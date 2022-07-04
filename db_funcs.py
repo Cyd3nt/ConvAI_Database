@@ -870,3 +870,24 @@ def get_voice_for_character(charID : str)-> str :
             #print(query)
             print("Error in executing the query for get_voice_for_character : ",e)
     return r
+
+def get_character_actions(charID : str) -> list :
+    '''
+    Function to retrieve the available actions for a specific character
+    Arguments:
+        charID : the character id
+    Returns:
+        list : list of actions available for the character. If none are present, will return empty list.
+    '''
+    GET_CHARACTER_ACTIONS = """ SELECT character_actions FROM all_characters WHERE character_id = '{}';"""
+    r = []
+    with connect_to_database(1) as conn :
+        try:
+            query = GET_CHARACTER_ACTIONS.format(charID)
+            query_results = execute_and_return_results(query,conn)
+            if len(query_results)>0:
+                r = query_results[0]["character_actions"]
+        except Exception as e:
+            #print(query)
+            print("Error in executing the query for get_character_actions : ",e)
+    return r
