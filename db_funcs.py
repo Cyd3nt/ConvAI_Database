@@ -328,24 +328,26 @@ def insert_new_character(
     contract_address : str,
     mint_address : str,
     owner_address : str,
+    character_actions : list,
     collection_name : str = 'convai_default_collection'
 ) -> str:
     '''
     Function to insert a new character into the database
     Arguments:
-        character_name  : the name of the character
-        user_id         : the user id of the owner
-        model_type      : whether 2D or 3D
-        collection_name : name of the collection, by default it will be a part of 'convai_default_collection'
-        state_names     : available states for the character 
-        state_links     : links to the available state
-        listing         : public or private
-        voice_type      : type of voice for the character
-        voice_pitch     : pitch value for the character
-        blockchain      : <will ask Himadri da to fill in>
-        contract_address: <will ask Himadri da to fill in>
-        mint_address    : <will ask Himadri da to fill in>
-        owner_address   : <will ask Himadri da to fill in>
+        character_name      : the name of the character
+        user_id             : the user id of the owner
+        model_type          : whether 2D or 3D
+        collection_name     : name of the collection, by default it will be a part of 'convai_default_collection'
+        state_names         : available states for the character 
+        state_links         : links to the available state
+        listing             : public or private
+        voice_type          : type of voice for the character
+        voice_pitch         : pitch value for the character
+        character_actions   : list of actions for the character
+        blockchain          : <will ask Himadri da to fill in>
+        contract_address    : <will ask Himadri da to fill in>
+        mint_address        : <will ask Himadri da to fill in>
+        owner_address       : <will ask Himadri da to fill in>
     Returns :
         str       : the character id for the new character;
                     incase no results were found, return "-1"
@@ -354,9 +356,9 @@ def insert_new_character(
     char_id = "-1"
     
     INSERT_CHARACTER_INTO_ALLCHARACTERS = """ INSERT INTO all_characters 
-                                              (character_name, collection_name, user_id, model_type, state_names, state_links, listing, voice_type, voice_pitch, blockchain, contract_address, mint_address, owner_address) 
+                                              (character_name, collection_name, user_id, model_type, state_names, state_links, listing, voice_type, voice_pitch, blockchain, contract_address, mint_address, owner_address, character_actions) 
                                               VALUES
-                                              ('{}','{}','{}','{}','{}','{}','{}','{}','{}','{}','{}','{}','{}'); """
+                                              ('{}','{}','{}','{}','{}','{}','{}','{}','{}','{}','{}','{}','{}','{}'); """
     RETRIEVE_CHARACTERID_FROM_ALLCHARACTERS = """SELECT character_id FROM all_characters 
                                                  WHERE character_name = '{}' AND user_id = '{}' AND collection_name = '{}' 
                                                  ORDER BY timestamp DESC; """
@@ -365,13 +367,16 @@ def insert_new_character(
     with connect_to_database(1) as conn:
         try:
             state_names = [remove_special_character01(state) for state in state_names]
+            character_actions = [remove_special_character01(action) for action in character_actions]
+
             state_names = "{" + ",".join(state_names) + "}"
             state_links = "{" + ",".join(state_links) + "}"
+            character_actions = "{" + ",".join(character_actions) + "}"
             
             character_name = remove_special_character01(character_name)
             collection_name = remove_special_character01(collection_name)
 
-            query01 = INSERT_CHARACTER_INTO_ALLCHARACTERS.format(character_name, collection_name, user_id, model_type, state_names, state_links, listing, voice_type, voice_pitch, blockchain, contract_address, mint_address, owner_address)
+            query01 = INSERT_CHARACTER_INTO_ALLCHARACTERS.format(character_name, collection_name, user_id, model_type, state_names, state_links, listing, voice_type, voice_pitch, blockchain, contract_address, mint_address, owner_address, character_actions)
             with conn.cursor() as cursor_obj:
                 cursor_obj.execute(query01)
             
@@ -494,7 +499,8 @@ def update_character_details(updated_data_dict : dict ) -> int :
                                        blockchain = '{}', 
                                        contract_address = '{}', 
                                        mint_address = '{}', 
-                                       owner_address = '{}' 
+                                       owner_address = '{}',
+                                       character_actions = '{}' 
                                    WHERE character_id = '{}'; """
     
     with connect_to_database(1) as conn:
@@ -514,7 +520,7 @@ def update_character_details(updated_data_dict : dict ) -> int :
                                                     updated_data_dict['user_id'],updated_data_dict['model_type'],updated_data_dict['state_names'],
                                                     updated_data_dict['state_links'], updated_data_dict['listing'], updated_data_dict['voice_type'], 
                                                     updated_data_dict['voice_pitch'], updated_data_dict['blockchain'], updated_data_dict['contract_address'], 
-                                                    updated_data_dict['mint_address'], updated_data_dict['owner_address'], updated_data_dict['character_id'])
+                                                    updated_data_dict['mint_address'], updated_data_dict['owner_address'], updated_data_dict['character_actions'], updated_data_dict['character_id'])
             cursor_obj = conn.cursor()
             cursor_obj.execute(query)
             cursor_obj.close()
