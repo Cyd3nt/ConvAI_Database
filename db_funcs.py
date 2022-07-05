@@ -328,7 +328,7 @@ def insert_new_character(
     contract_address : str,
     mint_address : str,
     owner_address : str,
-    character_actions : list,
+    character_actions : list = [],
     collection_name : str = 'convai_default_collection'
 ) -> str:
     '''
