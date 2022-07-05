@@ -511,7 +511,10 @@ def update_character_details(updated_data_dict : dict ) -> int :
                                                     
             if isinstance(updated_data_dict["state_links"], list):
                 updated_data_dict["state_links"] = "{" + ",".join(updated_data_dict["state_links"]) + "}"
-
+            
+            if isinstance(updated_data_dict["character_actions"], list):
+                updated_data_dict["character_actions"] = "{" + ",".join(updated_data_dict["character_actions"]) + "}"
+                
             if isinstance(updated_data_dict["state_names"], list):
                 updated_data_dict["state_names"] = [remove_special_character01(state) for state in updated_data_dict["state_names"]]
                 updated_data_dict["state_names"] = "{" + ",".join(updated_data_dict["state_names"]) + "}"
