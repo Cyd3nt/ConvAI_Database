@@ -900,3 +900,26 @@ def get_character_actions(charID : str) -> list :
             #print(query)
             print("Error in executing the query for get_character_actions : ",e)
     return r
+
+def insert_interaction_prompt_data(requestBody : str, responseBody : str) -> int :
+    '''
+    Function to insert openai request and responses for fututre use
+    Arguments:
+        requestBody  : contex prompt
+        responseBody : raw response from openai
+    Returns:
+        int : -1 if failed else 0
+    '''
+    INSERT_RECORD = """ INSERT INTO interaction_prompt_data (raw_request_prompt, raw_response) VALUES ('{}','{}'); """
+    r = -1
+    with connect_to_database(1) as conn :
+        try:
+            query = INSERT_RECORD.format(requestBody, responseBody)
+            cursor_obj = conn.cursor()
+            cursor_obj.execute(query)
+            cursor_obj.close()
+            r = 0
+        except Exception as e:
+            #print(query)
+            print("Error in executing the query for insert_interaction_prompt_data : ",e)
+    return r
