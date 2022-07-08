@@ -898,20 +898,34 @@ def get_character_actions(charID : str) -> list :
             print("Error in executing the query for get_character_actions : ",e)
     return r
 
-def insert_interaction_prompt_data(requestBody : str, responseBody : str) -> int :
+def insert_interaction_prompt_data(prompt : str, temperature : float, max_tokens : int, top_p : float, frequency_penalty : float, presence_penalty : float, stop : str, response : str , model : str = 'NULL', engine : str = 'NULL') -> int :
     '''
     Function to insert openai request and responses for fututre use
     Arguments:
-        requestBody  : contex prompt
-        responseBody : raw response from openai
+        prompt                   : TEXT
+        model                    : TEXT
+        engine                   : TEXT
+        temperature              : FLOAT
+        max_tokens               : INT
+        top_p                    : FLOAT
+        frequency_penalty        : FLOAT
+        presence_penalty         : FLOAT
+        stop                     : TEXT
+        response                 : TEXT
     Returns:
         int : -1 if failed else 0
     '''
-    INSERT_RECORD = """ INSERT INTO interaction_prompt_data (raw_request_prompt, raw_response) VALUES ('{}','{}'); """
+    INSERT_RECORD = """ INSERT into interaction_prompt_data (prompt, model, engine, temperature, max_tokens, top_p, frequency_penalty, presence_penalty, stop, response) VALUES ('{}','{}','{}', {}, {}, {}, {}, {}, '{}', '{}'); """
     r = -1
     with connect_to_database(1) as conn :
         try:
-            query = INSERT_RECORD.format(requestBody, responseBody)
+            prompt = remove_special_character01(prompt)
+            model = remove_special_character01(model)
+            engine = remove_special_character01(engine)
+            stop = remove_special_character01(stop)
+            response = remove_special_character01(response)
+
+            query = INSERT_RECORD.format(prompt, model, engine, temperature, max_tokens, top_p, frequency_penalty, presence_penalty, stop, response)
             cursor_obj = conn.cursor()
             cursor_obj.execute(query)
             cursor_obj.close()
