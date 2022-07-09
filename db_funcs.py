@@ -1,8 +1,10 @@
 from ConvAI_Database.db_utilities import connect_to_database, execute_and_return_results
 from multiprocessing import Process
 #from db_utilities import connect_to_database, execute_and_return_results
+import re
 
 remove_special_character01 = lambda a : a.replace("'","''")
+remove_multi_new_line_characters = lambda a : re.sub(r'(\n\s*)+\n', '\n\n', a)
 
 def register_user(user_id : str, username : str, email : str) -> int:
     '''
@@ -923,11 +925,15 @@ def insert_interaction_prompt_data(prompt : str, temperature : float, max_tokens
     with connect_to_database(1) as conn :
         try:
             prompt = remove_special_character01(prompt)
+            prompt = remove_multi_new_line_characters(prompt)
+            
             model = remove_special_character01(model)
             engine = remove_special_character01(engine)
             stop = remove_special_character01(stop)
+            
             response = remove_special_character01(response)
-
+            response = remove_multi_new_line_characters(response)
+            
             query = INSERT_RECORD.format(prompt, model, engine, temperature, max_tokens, top_p, frequency_penalty, presence_penalty, stop, response)
             cursor_obj = conn.cursor()
             cursor_obj.execute(query)
