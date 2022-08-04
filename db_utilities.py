@@ -51,7 +51,7 @@ def connect_to_database(n: int) -> Any :
         )
 
         conn.set_session(autocommit=True)
-        print("Connected to the database.")
+        #print("Connected to the database.")
         return conn
 
     except Exception as e:
@@ -69,7 +69,7 @@ def disconnect_from_database(connection_object : psycopg2.extensions.connection,
         if cursor_object is not None :
             cursor_object.close()
         connection_object.close()
-        print("Connection closed")
+        #print("Connection closed")
     except Exception as e:
         print(e)
 
