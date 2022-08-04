@@ -6,23 +6,29 @@ import re
 remove_special_character01 = lambda a : a.replace("'","''")
 remove_multi_new_line_characters = lambda a : re.sub(r'(\n\s*)+\n', '\n\n', a)
 
-def register_user(user_id : str, username : str, email : str) -> int:
+def register_user(user_id : str, username : str, email : str, company_name : str, company_role : str) -> int:
     '''
     Function to register the new user in the database
     Arguments:
         user_id   : the unique user_id created for the user
         username  : the username of the user
         email     : user's email
+        company_name : name of user's organisation
+        company_role : user's designation
     Returns :
         int(0/-1) : whether the query execution was successful or not ( 0 : successful ; -1 : error)
     '''
-    INSERT_USER_DETAILS = """ INSERT INTO user_details( user_id, username, email) VALUES ('{}','{}','{}');"""
+    INSERT_USER_DETAILS = """ INSERT INTO user_details( user_id, username, email, organisation, user_designation) VALUES ('{}','{}','{}','{}','{}');"""
     r = -1
     with connect_to_database(1) as conn :
         try:
             username = remove_special_character01(username)
             email = remove_special_character01(email)
-            query = INSERT_USER_DETAILS.format(user_id,username,email)
+            company_name = remove_special_character01(company_name)
+            company_role = remove_special_character01(company_role)
+
+            query = INSERT_USER_DETAILS.format(user_id,username,email, company_name, company_role)
+            
             cursor_obj = conn.cursor()
             cursor_obj.execute(query)
             cursor_obj.close()
@@ -787,7 +793,7 @@ def delete_new_user(email : str)->str:
             r = """ ERROR: {} """.format(e)
     return r
 
-def user_registration(uid, username, email, api_key) -> dict:
+def user_registration(uid, username, email, api_key, company_name, company_role) -> dict:
     '''
     Function to streamline the user's registration process
     Arguments:
@@ -800,7 +806,7 @@ def user_registration(uid, username, email, api_key) -> dict:
                Keyword is "status" , if 0 then it means successful, else failure. 
                The negative int will denote at whch level it failed.
     '''
-    user_registration = register_user(uid, username, email)
+    user_registration = register_user(uid, username, email, company_name, company_role)
     if user_registration == 0:
         api_registration = register_api_key(uid, email, api_key)
         if api_registration == 0:
