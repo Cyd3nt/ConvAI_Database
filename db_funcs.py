@@ -959,9 +959,11 @@ def insert_interaction_prompt_data(prompt : str, temperature : float, max_tokens
             print("Error in executing the query for insert_interaction_prompt_data : ",e)
     return r
 
-def get_user_details(email : str):
+def get_user_details(email : str)->dict:
     '''
     Function to retrieve user details.
+    Return sample :
+    {'user_id': 'CAIJUST-TESTING2022AR', 'username': 'testing', 'email': 'just-testing@convai.com', 'registration_timestamp': Timestamp('2022-04-16 06:35:23.457031'), 'organisation': None, 'user_designation': None}
     '''
     r=-1
     GET_USER_DETAILS = """SELECT * FROM user_details WHERE email = '{}'; """
@@ -970,16 +972,17 @@ def get_user_details(email : str):
             query = GET_USER_DETAILS.format(email)
             query_results = execute_and_return_results(query,conn)
             if len(query_results)>0:
-                r = query_results
+                r = query_results[0]
         except Exception as e:
             #print(query)
             print("Error in executing the query for get_chat_history : ",e)
     return r
 
-
 def user_update(email : str, username : str, company_name : str, company_role: str):
     '''
     Function to update user details in the table user_details.
+    Returns :
+    {'status': 'SUCCESS'}
     '''
     s = -1
     UPDATE_USER_DETAILS = """ UPDATE user_details SET username='{}' , organisation='{}', user_designation='{}' WHERE email='{}' ; """
