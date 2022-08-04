@@ -976,6 +976,10 @@ def user_update(email : str, username : str, company_name : str, company_role: s
     UPDATE_USER_DETAILS = """ UPDATE user_details SET username='{}' , organisation='{}', user_designation='{}' WHERE email='{}' ; """
     with connect_to_database(1) as conn :
         try:
+            username = remove_special_character01(username)
+            company_name = remove_special_character01(company_name)
+            company_role = remove_special_character01(company_role)
+
             query = UPDATE_USER_DETAILS.format(username, company_name, company_role, email)
 
             cursor_obj = conn.cursor()
@@ -987,5 +991,5 @@ def user_update(email : str, username : str, company_name : str, company_role: s
             #print(query)
             print("Error in executing the query for get_chat_history : ",e)
             s="ERROR : "+str(e)
-            
+
     return {"status":s}
