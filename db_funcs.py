@@ -959,7 +959,7 @@ def insert_interaction_prompt_data(prompt : str, temperature : float, max_tokens
             print("Error in executing the query for insert_interaction_prompt_data : ",e)
     return r
 
-def get__user_details(email : str):
+def get_user_details(email : str):
     '''
     Function to retrieve user details.
     '''
