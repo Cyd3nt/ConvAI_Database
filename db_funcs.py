@@ -949,3 +949,43 @@ def insert_interaction_prompt_data(prompt : str, temperature : float, max_tokens
             #print(query)
             print("Error in executing the query for insert_interaction_prompt_data : ",e)
     return r
+
+def get__user_details(email : str):
+    '''
+    Function to retrieve user details.
+    '''
+    r=-1
+    GET_USER_DETAILS = """SELECT * FROM user_details WHERE email = '{}'; """
+    with connect_to_database(1) as conn :
+        try:
+            query = GET_USER_DETAILS.format(email)
+            query_results = execute_and_return_results(query,conn)
+            if len(query_results)>0:
+                r = query_results
+        except Exception as e:
+            #print(query)
+            print("Error in executing the query for get_chat_history : ",e)
+    return r
+
+
+def user_update(email : str, username : str, company_name : str, company_role: str):
+    '''
+    Function to update user details in the table user_details.
+    '''
+    s = -1
+    UPDATE_USER_DETAILS = """ UPDATE user_details SET username='{}' , organisation='{}', user_designation='{}' WHERE email='{}' ; """
+    with connect_to_database(1) as conn :
+        try:
+            query = UPDATE_USER_DETAILS.format(username, company_name, company_role, email)
+
+            cursor_obj = conn.cursor()
+            cursor_obj.execute(query)
+            cursor_obj.close()
+
+            s="SUCCESS"
+        except Exception as e:
+            #print(query)
+            print("Error in executing the query for get_chat_history : ",e)
+            s="ERROR : "+str(e)
+            
+    return {"status":s}
