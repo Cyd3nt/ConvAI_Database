@@ -138,7 +138,7 @@ def user_login(email : str) -> dict:
               Will remove in the future iteration.
     '''
     GET_API_KEY_DETAILS = """ SELECT api_key
-                          FROM (SELECT api_key, generation_timestamp AS gt FROM api_map WHERE email = '{}' ORDER BY gt DESC) AS S
+                          FROM (SELECT api_key, generation_timestamp AS gt FROM api_map WHERE email ILIKE '{}' ORDER BY gt DESC) AS S
                           LIMIT 1; """
     api_key = {"apiKey":-1}
     with connect_to_database(1) as conn:
