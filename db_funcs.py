@@ -2,6 +2,7 @@ from ConvAI_Database.db_utilities import connect_to_database, execute_and_return
 from multiprocessing import Process
 #from db_utilities import connect_to_database, execute_and_return_results
 import re
+import json
 
 remove_special_character01 = lambda a : a.replace("'","''")
 remove_multi_new_line_characters = lambda a : re.sub(r'(\n\s*)+\n', '\n\n', a)
@@ -465,6 +466,27 @@ def update_character_metadata(char_id : str, backstory : str, doc_store_file_lin
         characteristics       : list of characteristics for the character
     Returns :
         int(0/-1) : whether the query execution was successful or not ( 0 : successful ; -1 : error)
+
+    Procedure:
+     CREATE OR REPLACE PROCEDURE update_backstory_version_charactermetadata(input_character_id UUID)
+                language plpgsql
+                AS 
+                $$  
+                    declare
+                           version_count INTEGER;
+                    begin
+                        SELECT COUNT(*) FROM character_metadata 
+                        INTO version_count 
+                        WHERE character_id = input_character_id;
+                        
+                        IF version_count>0 THEN
+                            UPDATE character_metadata 
+                            SET  version = (SELECT MAX(version) FROM character_metadata WHERE character_id = input_character_id )+1
+                            WHERE 
+                            character_id = input_character_id AND version = 0;
+                        END IF;
+                    end
+                $$
     '''
     INSERT_BACKSTORY= """  CALL update_backstory_version_charactermetadata(input_character_id => '{}'::uuid);
                            INSERT INTO character_metadata (character_id, backstory, document_store_file_link, characteristics ) VALUES ('{}','{}','{}','{}');"""
@@ -963,7 +985,12 @@ def get_user_details(email : str)->dict:
     '''
     Function to retrieve user details.
     Return sample :
-    {'user_id': 'CAIJUST-TESTING2022AR', 'username': 'testing', 'email': 'just-testing@convai.com', 'registration_timestamp': Timestamp('2022-04-16 06:35:23.457031'), 'organisation': None, 'user_designation': None}
+    {'user_id': 'CAIJUST-TESTING2022AR', 
+    'username': 'testing', 
+    'email': 'just-testing@convai.com', 
+    'registration_timestamp': Timestamp('2022-04-16 06:35:23.457031'), 
+    'organisation': None, 
+    'user_designation': None}
     '''
     r=-1
     GET_USER_DETAILS = """SELECT * FROM user_details WHERE email = '{}'; """
@@ -1026,3 +1053,54 @@ def get_character_emotions(charID : str) -> list:
             #print(query)
             print("Error in executing the query for get_character_emotions : ",e)
     return r
+
+def update_api_key(email:str, api_key:str)->dict:
+    '''
+    Function to register the new api_key for the user at the backend.
+
+    Procedure ;
+    CREATE OR REPLACE PROCEDURE update_api_key_version_api_map(input_email TEXT, new_api_key TEXT)
+                language plpgsql
+                AS 
+                $$  
+                    declare
+                           version_count INTEGER;
+                           r_user_id TEXT;
+                    begin
+                 
+                        SELECT user_id FROM api_map 
+                        INTO r_user_id
+                        WHERE email = input_email;
+                 
+				 		SELECT COUNT(*) FROM api_map 
+                        INTO version_count 
+                        WHERE user_id = r_user_id;
+                        
+						IF version_count>1 THEN
+                            UPDATE api_map 
+                            SET  email = version_count::TEXT 
+                            WHERE 
+                            email = input_email;
+                        END IF;
+
+                        INSERT INTO api_map( user_id, email, api_key) VALUES (r_user_id, input_email, new_api_key); 
+                    end
+                $$
+    '''
+    r = -1
+    UPDATE_API_KEY= """  CALL update_api_key_version_api_map(input_email => '{}'::TEXT, new_api_key => '{}'::TEXT); """
+    with connect_to_database(1) as conn :
+        try:
+            query = UPDATE_API_KEY.format(email, api_key)
+            cursor_obj = conn.cursor()
+            cursor_obj.execute(query)
+            cursor_obj.close()
+            r = 0
+        except Exception as e:
+            #print(query)
+            print("Error in executing the query for update_api_key : ",e)
+    return json.dumps({
+            "api_key": api_key,
+            "email": email,
+            "status": "SUCCESS" if r==0 else "FAILED with "+str(e)
+        })
