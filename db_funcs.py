@@ -1089,6 +1089,7 @@ def update_api_key(email:str, api_key:str)->dict:
     '''
     r = -1
     UPDATE_API_KEY= """  CALL update_api_key_version_api_map(input_email => '{}'::TEXT, new_api_key => '{}'::TEXT); """
+    error = ""
     with connect_to_database(1) as conn :
         try:
             query = UPDATE_API_KEY.format(email, api_key)
@@ -1099,8 +1100,9 @@ def update_api_key(email:str, api_key:str)->dict:
         except Exception as e:
             #print(query)
             print("Error in executing the query for update_api_key : ",e)
+            error = e
     return json.dumps({
             "api_key": api_key,
             "email": email,
-            "status": "SUCCESS" if r==0 else "FAILED with "+str(e)
+            "status": "SUCCESS" if r==0 else "FAILED with "+str(error)
         })
