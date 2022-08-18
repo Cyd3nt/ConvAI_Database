@@ -2,27 +2,34 @@ from ConvAI_Database.db_utilities import connect_to_database, execute_and_return
 from multiprocessing import Process
 #from db_utilities import connect_to_database, execute_and_return_results
 import re
+import json
 
 remove_special_character01 = lambda a : a.replace("'","''")
 remove_multi_new_line_characters = lambda a : re.sub(r'(\n\s*)+\n', '\n\n', a)
 
-def register_user(user_id : str, username : str, email : str) -> int:
+def register_user(user_id : str, username : str, email : str, company_name : str, company_role : str) -> int:
     '''
     Function to register the new user in the database
     Arguments:
         user_id   : the unique user_id created for the user
         username  : the username of the user
         email     : user's email
+        company_name : name of user's organisation
+        company_role : user's designation
     Returns :
         int(0/-1) : whether the query execution was successful or not ( 0 : successful ; -1 : error)
     '''
-    INSERT_USER_DETAILS = """ INSERT INTO user_details( user_id, username, email) VALUES ('{}','{}','{}');"""
+    INSERT_USER_DETAILS = """ INSERT INTO user_details( user_id, username, email, organisation, user_designation) VALUES ('{}','{}','{}','{}','{}');"""
     r = -1
     with connect_to_database(1) as conn :
         try:
             username = remove_special_character01(username)
             email = remove_special_character01(email)
-            query = INSERT_USER_DETAILS.format(user_id,username,email)
+            company_name = remove_special_character01(company_name)
+            company_role = remove_special_character01(company_role)
+
+            query = INSERT_USER_DETAILS.format(user_id,username,email, company_name, company_role)
+            
             cursor_obj = conn.cursor()
             cursor_obj.execute(query)
             cursor_obj.close()
@@ -132,7 +139,7 @@ def user_login(email : str) -> dict:
               Will remove in the future iteration.
     '''
     GET_API_KEY_DETAILS = """ SELECT api_key
-                          FROM (SELECT api_key, generation_timestamp AS gt FROM api_map WHERE email = '{}' ORDER BY gt DESC) AS S
+                          FROM (SELECT api_key, generation_timestamp AS gt FROM api_map WHERE email ILIKE '{}' ORDER BY gt DESC) AS S
                           LIMIT 1; """
     api_key = {"apiKey":-1}
     with connect_to_database(1) as conn:
@@ -331,6 +338,7 @@ def insert_new_character(
     mint_address : str,
     owner_address : str,
     character_actions : list = [],
+    character_emotions : list = [],
     collection_name : str = 'convai_default_collection'
 ) -> str:
     '''
@@ -346,6 +354,7 @@ def insert_new_character(
         voice_type          : type of voice for the character
         voice_pitch         : pitch value for the character
         character_actions   : list of actions for the character
+        character_emotions   : list of emotions for the character
         blockchain          : <will ask Himadri da to fill in>
         contract_address    : <will ask Himadri da to fill in>
         mint_address        : <will ask Himadri da to fill in>
@@ -358,9 +367,9 @@ def insert_new_character(
     char_id = "-1"
     
     INSERT_CHARACTER_INTO_ALLCHARACTERS = """ INSERT INTO all_characters 
-                                              (character_name, collection_name, user_id, model_type, state_names, state_links, listing, voice_type, voice_pitch, blockchain, contract_address, mint_address, owner_address, character_actions) 
+                                              (character_name, collection_name, user_id, model_type, state_names, state_links, listing, voice_type, voice_pitch, blockchain, contract_address, mint_address, owner_address, character_actions, character_emotions) 
                                               VALUES
-                                              ('{}','{}','{}','{}','{}','{}','{}','{}','{}','{}','{}','{}','{}','{}'); """
+                                              ('{}','{}','{}','{}','{}','{}','{}','{}','{}','{}','{}','{}','{}','{}','{}'); """
     RETRIEVE_CHARACTERID_FROM_ALLCHARACTERS = """SELECT character_id FROM all_characters 
                                                  WHERE character_name = '{}' AND user_id = '{}' AND collection_name = '{}' 
                                                  ORDER BY timestamp DESC; """
@@ -370,15 +379,17 @@ def insert_new_character(
         try:
             state_names = [remove_special_character01(state) for state in state_names]
             character_actions = [remove_special_character01(action) for action in character_actions]
+            character_emotions = [remove_special_character01(emotion) for emotion in character_emotions]
 
             state_names = "{" + ",".join(state_names) + "}"
             state_links = "{" + ",".join(state_links) + "}"
             character_actions = "{" + ",".join(character_actions) + "}"
+            character_emotions = "{" + ",".join(character_emotions) + "}"
             
             character_name = remove_special_character01(character_name)
             collection_name = remove_special_character01(collection_name)
 
-            query01 = INSERT_CHARACTER_INTO_ALLCHARACTERS.format(character_name, collection_name, user_id, model_type, state_names, state_links, listing, voice_type, voice_pitch, blockchain, contract_address, mint_address, owner_address, character_actions)
+            query01 = INSERT_CHARACTER_INTO_ALLCHARACTERS.format(character_name, collection_name, user_id, model_type, state_names, state_links, listing, voice_type, voice_pitch, blockchain, contract_address, mint_address, owner_address, character_actions, character_emotions)
             with conn.cursor() as cursor_obj:
                 cursor_obj.execute(query01)
             
@@ -455,6 +466,27 @@ def update_character_metadata(char_id : str, backstory : str, doc_store_file_lin
         characteristics       : list of characteristics for the character
     Returns :
         int(0/-1) : whether the query execution was successful or not ( 0 : successful ; -1 : error)
+
+    Procedure:
+     CREATE OR REPLACE PROCEDURE update_backstory_version_charactermetadata(input_character_id UUID)
+                language plpgsql
+                AS 
+                $$  
+                    declare
+                           version_count INTEGER;
+                    begin
+                        SELECT COUNT(*) FROM character_metadata 
+                        INTO version_count 
+                        WHERE character_id = input_character_id;
+                        
+                        IF version_count>0 THEN
+                            UPDATE character_metadata 
+                            SET  version = (SELECT MAX(version) FROM character_metadata WHERE character_id = input_character_id )+1
+                            WHERE 
+                            character_id = input_character_id AND version = 0;
+                        END IF;
+                    end
+                $$
     '''
     INSERT_BACKSTORY= """  CALL update_backstory_version_charactermetadata(input_character_id => '{}'::uuid);
                            INSERT INTO character_metadata (character_id, backstory, document_store_file_link, characteristics ) VALUES ('{}','{}','{}','{}');"""
@@ -502,7 +534,8 @@ def update_character_details(updated_data_dict : dict ) -> int :
                                        contract_address = '{}', 
                                        mint_address = '{}', 
                                        owner_address = '{}',
-                                       character_actions = '{}' 
+                                       character_actions = '{}',
+                                       character_emotions = '{}' 
                                    WHERE character_id = '{}'; """
     
     with connect_to_database(1) as conn:
@@ -516,6 +549,9 @@ def update_character_details(updated_data_dict : dict ) -> int :
             
             if isinstance(updated_data_dict["character_actions"], list):
                 updated_data_dict["character_actions"] = "{" + ",".join(updated_data_dict["character_actions"]) + "}"
+
+            if isinstance(updated_data_dict["character_emotions"], list):
+                updated_data_dict["character_emotions"] = "{" + ",".join(updated_data_dict["character_emotions"]) + "}"
                 
             if isinstance(updated_data_dict["state_names"], list):
                 updated_data_dict["state_names"] = [remove_special_character01(state) for state in updated_data_dict["state_names"]]
@@ -525,7 +561,8 @@ def update_character_details(updated_data_dict : dict ) -> int :
                                                     updated_data_dict['user_id'],updated_data_dict['model_type'],updated_data_dict['state_names'],
                                                     updated_data_dict['state_links'], updated_data_dict['listing'], updated_data_dict['voice_type'], 
                                                     updated_data_dict['voice_pitch'], updated_data_dict['blockchain'], updated_data_dict['contract_address'], 
-                                                    updated_data_dict['mint_address'], updated_data_dict['owner_address'], updated_data_dict['character_actions'], updated_data_dict['character_id'])
+                                                    updated_data_dict['mint_address'], updated_data_dict['owner_address'], updated_data_dict['character_actions'],
+                                                    updated_data_dict['character_emotions'], updated_data_dict['character_id'])
             cursor_obj = conn.cursor()
             cursor_obj.execute(query)
             cursor_obj.close()
@@ -787,7 +824,7 @@ def delete_new_user(email : str)->str:
             r = """ ERROR: {} """.format(e)
     return r
 
-def user_registration(uid, username, email, api_key) -> dict:
+def user_registration(uid, username, email, api_key, company_name, company_role) -> dict:
     '''
     Function to streamline the user's registration process
     Arguments:
@@ -800,7 +837,7 @@ def user_registration(uid, username, email, api_key) -> dict:
                Keyword is "status" , if 0 then it means successful, else failure. 
                The negative int will denote at whch level it failed.
     '''
-    user_registration = register_user(uid, username, email)
+    user_registration = register_user(uid, username, email, company_name, company_role)
     if user_registration == 0:
         api_registration = register_api_key(uid, email, api_key)
         if api_registration == 0:
@@ -943,3 +980,129 @@ def insert_interaction_prompt_data(prompt : str, temperature : float, max_tokens
             #print(query)
             print("Error in executing the query for insert_interaction_prompt_data : ",e)
     return r
+
+def get_user_details(email : str)->dict:
+    '''
+    Function to retrieve user details.
+    Return sample :
+    {'user_id': 'CAIJUST-TESTING2022AR', 
+    'username': 'testing', 
+    'email': 'just-testing@convai.com', 
+    'registration_timestamp': Timestamp('2022-04-16 06:35:23.457031'), 
+    'organisation': None, 
+    'user_designation': None}
+    '''
+    r=-1
+    GET_USER_DETAILS = """SELECT * FROM user_details WHERE email = '{}'; """
+    with connect_to_database(1) as conn :
+        try:
+            query = GET_USER_DETAILS.format(email)
+            query_results = execute_and_return_results(query,conn)
+            if len(query_results)>0:
+                r = query_results[0]
+        except Exception as e:
+            #print(query)
+            print("Error in executing the query for get_chat_history : ",e)
+    return r
+
+def user_update(email : str, username : str, company_name : str, company_role: str):
+    '''
+    Function to update user details in the table user_details.
+    Returns :
+    {'status': 'SUCCESS'}
+    '''
+    s = -1
+    UPDATE_USER_DETAILS = """ UPDATE user_details SET username='{}' , organisation='{}', user_designation='{}' WHERE email='{}' ; """
+    with connect_to_database(1) as conn :
+        try:
+            username = remove_special_character01(username)
+            company_name = remove_special_character01(company_name)
+            company_role = remove_special_character01(company_role)
+
+            query = UPDATE_USER_DETAILS.format(username, company_name, company_role, email)
+
+            cursor_obj = conn.cursor()
+            cursor_obj.execute(query)
+            cursor_obj.close()
+
+            s="SUCCESS"
+        except Exception as e:
+            #print(query)
+            print("Error in executing the query for get_chat_history : ",e)
+            s="ERROR : "+str(e)
+
+    return {"status":s}
+
+def get_character_emotions(charID : str) -> list:
+    '''
+    Function to retrieve the available emotions for a specific character
+    Arguments:
+        charID : the character id
+    Returns:
+        list : list of emotions available for the character. If none are present, will return empty list.
+    '''
+    GET_CHARACTER_EMOTIONS = """ SELECT character_emotions FROM all_characters WHERE character_id = '{}';"""
+    r = []
+    with connect_to_database(1) as conn :
+        try:
+            query = GET_CHARACTER_EMOTIONS.format(charID)
+            query_results = execute_and_return_results(query,conn)
+            if len(query_results)>0:
+                r = query_results[0]["character_emotions"]
+        except Exception as e:
+            #print(query)
+            print("Error in executing the query for get_character_emotions : ",e)
+    return r
+
+def update_api_key(email:str, api_key:str)->dict:
+    '''
+    Function to register the new api_key for the user at the backend.
+
+    Procedure ;
+    CREATE OR REPLACE PROCEDURE update_api_key_version_api_map(input_email TEXT, new_api_key TEXT)
+                language plpgsql
+                AS 
+                $$  
+                    declare
+                           version_count INTEGER;
+                           r_user_id TEXT;
+                    begin
+                 
+                        SELECT user_id FROM api_map 
+                        INTO r_user_id
+                        WHERE email = input_email;
+                 
+				 		SELECT COUNT(*) FROM api_map 
+                        INTO version_count 
+                        WHERE user_id = r_user_id;
+                        
+						IF version_count>1 THEN
+                            UPDATE api_map 
+                            SET  email = version_count::TEXT 
+                            WHERE 
+                            email = input_email;
+                        END IF;
+
+                        INSERT INTO api_map( user_id, email, api_key) VALUES (r_user_id, input_email, new_api_key); 
+                    end
+                $$
+    '''
+    r = -1
+    UPDATE_API_KEY= """  CALL update_api_key_version_api_map(input_email => '{}'::TEXT, new_api_key => '{}'::TEXT); """
+    error = ""
+    with connect_to_database(1) as conn :
+        try:
+            query = UPDATE_API_KEY.format(email, api_key)
+            cursor_obj = conn.cursor()
+            cursor_obj.execute(query)
+            cursor_obj.close()
+            r = 0
+        except Exception as e:
+            #print(query)
+            print("Error in executing the query for update_api_key : ",e)
+            error = e
+    return json.dumps({
+            "api_key": api_key,
+            "email": email,
+            "status": "SUCCESS" if r==0 else "FAILED with "+str(error)
+        })
