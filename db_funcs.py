@@ -1101,8 +1101,8 @@ def update_api_key(email:str, api_key:str)->dict:
             #print(query)
             print("Error in executing the query for update_api_key : ",e)
             error = e
-    return json.dumps({
+    return {
             "api_key": api_key,
             "email": email,
             "status": "SUCCESS" if r==0 else "FAILED with "+str(error)
-        })
+           }
