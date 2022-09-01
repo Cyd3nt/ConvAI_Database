@@ -150,7 +150,10 @@ def user_login(email : str) -> dict:
                           FROM (SELECT api_key, generation_timestamp AS gt FROM api_map WHERE email ILIKE '{}' ORDER BY gt DESC) AS S
                           LIMIT 1; """
     
-    user_verification_details = {"apiKey":-1}
+    user_verification_details = {
+        "apiKey": -1,
+        "convai_verified": False
+    }
     with connect_to_database(1) as conn:
         try :
             email = remove_special_character01(email)
