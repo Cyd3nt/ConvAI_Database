@@ -545,19 +545,24 @@ def update_character_details(updated_data_dict : dict ) -> int :
             updated_data_dict['character_name'] = remove_special_character01(updated_data_dict['character_name'])
             updated_data_dict['collection_name'] = remove_special_character01(updated_data_dict['collection_name'])
                                                     
-                                                    
+            #print(updated_data_dict)                                     
             if isinstance(updated_data_dict["state_links"], list):
                 updated_data_dict["state_links"] = "{" + ",".join(updated_data_dict["state_links"]) + "}"
-            
+            elif updated_data_dict["state_links"] is None:
+                updated_data_dict["state_links"] = "{" + "}"
+
+
             if isinstance(updated_data_dict["character_actions"], list):
                 updated_data_dict["character_actions"] = "{" + ",".join(updated_data_dict["character_actions"]) + "}"
 
             if isinstance(updated_data_dict["character_emotions"], list):
                 updated_data_dict["character_emotions"] = "{" + ",".join(updated_data_dict["character_emotions"]) + "}"
-                
+               
             if isinstance(updated_data_dict["state_names"], list):
                 updated_data_dict["state_names"] = [remove_special_character01(state) for state in updated_data_dict["state_names"]]
                 updated_data_dict["state_names"] = "{" + ",".join(updated_data_dict["state_names"]) + "}"
+            elif updated_data_dict["state_names"] is None:
+                updated_data_dict["state_names"] = "{" + "}"
 
             query = UPDATE_CHARACTER_DETAILS.format(updated_data_dict['character_name'], updated_data_dict['collection_name'], 
                                                     updated_data_dict['user_id'],updated_data_dict['model_type'],updated_data_dict['state_names'],
