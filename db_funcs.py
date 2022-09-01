@@ -1148,7 +1148,7 @@ def update_convai_verification_status(email:str, verification_state: str) -> dic
 
         except Exception as e:
             #print(query)
-            print("Error in executing the query for the following user ",e)
+            print("Error in executing the query to update convai_verified attribute for the following user ",e)
             s="ERROR : "+str(e)
 
     return {"status":s}
