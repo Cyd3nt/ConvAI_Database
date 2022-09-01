@@ -141,21 +141,28 @@ def user_login(email : str) -> dict:
     GET_API_KEY_DETAILS = """ SELECT api_key
                           FROM (SELECT api_key, generation_timestamp AS gt FROM api_map WHERE email ILIKE '{}' ORDER BY gt DESC) AS S
                           LIMIT 1; """
-    api_key = {"apiKey":-1}
+    GET_CONVAI_VERIFICATION_STATUS = """ SELECT convai_verified FROM user_details WHERE email ILIKE '{}'; """
+    user_verification_details = {"apiKey":-1}
     with connect_to_database(1) as conn:
         try :
             email = remove_special_character01(email)
-            query = GET_API_KEY_DETAILS.format(email)
-            query_results = execute_and_return_results(query, conn)
+            api_key_query = GET_API_KEY_DETAILS.format(email)
+            api_key_query_results = execute_and_return_results(api_key_query, conn)
+
+            convai_ver_status_query = GET_CONVAI_VERIFICATION_STATUS(email)
+            convai_ver_status_query_result = execute_and_return_results(convai_ver_status_query, conn)
         
-            if len(query_results) > 0:
-                api_key['apiKey'] = query_results[0]['api_key']
+            if len(api_key_query_results) > 0:
+                user_verification_details['apiKey'] = api_key_query_results[0]['api_key']
+
+            if len(convai_ver_status_query_result) > 0:
+                user_verification_details["convai_verified"] = convai_ver_status_query_result[0]['convai_verified']
 
         except Exception as e:
             #print(query)
             print("Error in executing the query for user_login : ",e)
     
-    return api_key
+    return user_verification_details
 
 def check_apiKey_existence(api_key : str) -> int:
     '''
