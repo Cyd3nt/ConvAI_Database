@@ -112,20 +112,28 @@ def get_api_key_info(email : str) -> str:
     GET_API_KEY_DETAILS = """ SELECT api_key
                           FROM (SELECT api_key, generation_timestamp AS gt FROM api_map WHERE email = '{}' ORDER BY gt DESC) AS S
                           LIMIT 1; """
-    api_key = "-1"
+    GET_CONVAI_VERIFICATION_STATUS = """ SELECT convai_verified FROM user_details WHERE email ILIKE '{}'; """
+    user_verification_details = {"apiKey":-1}
     with connect_to_database(1) as conn:
         try :
             email = remove_special_character01(email)
-            query = GET_API_KEY_DETAILS.format(email)
-            query_results = execute_and_return_results(query, conn)
+            api_key_query = GET_API_KEY_DETAILS.format(email)
+            api_key_query_results = execute_and_return_results(api_key_query, conn)
+
+            convai_ver_status_query = GET_CONVAI_VERIFICATION_STATUS(email)
+            convai_ver_status_query_result = execute_and_return_results(convai_ver_status_query, conn)
         
-            if len(query_results) > 0:
-                api_key = str(query_results[0]['api_key'])
+            if len(api_key_query_results) > 0:
+                user_verification_details['apiKey'] = api_key_query_results[0]['api_key']
+
+            if len(convai_ver_status_query_result) > 0:
+                user_verification_details["convai_verified"] = convai_ver_status_query_result[0]['convai_verified']
+
         except Exception as e:
             #print(query)
             print("Error in executing the query for get_api_key_info : ",e)
     
-    return api_key
+    return user_verification_details
 
 def user_login(email : str) -> dict:
     '''
@@ -143,21 +151,26 @@ def user_login(email : str) -> dict:
     GET_API_KEY_DETAILS = """ SELECT api_key
                           FROM (SELECT api_key, generation_timestamp AS gt FROM api_map WHERE email ILIKE '{}' ORDER BY gt DESC) AS S
                           LIMIT 1; """
-    api_key = {"apiKey":-1}
+    
+    user_verification_details = {
+        "apiKey": -1,
+        "convai_verified": False
+    }
     with connect_to_database(1) as conn:
         try :
             email = remove_special_character01(email)
-            query = GET_API_KEY_DETAILS.format(email)
-            query_results = execute_and_return_results(query, conn)
+            api_key_query = GET_API_KEY_DETAILS.format(email)
+            api_key_query_results = execute_and_return_results(api_key_query, conn)
+
         
-            if len(query_results) > 0:
-                api_key['apiKey'] = query_results[0]['api_key']
+            if len(api_key_query_results) > 0:
+                user_verification_details['apiKey'] = api_key_query_results[0]['api_key']
 
         except Exception as e:
             #print(query)
             print("Error in executing the query for user_login : ",e)
     
-    return api_key
+    return user_verification_details
 
 def check_apiKey_existence(api_key : str) -> int:
     '''
@@ -1115,6 +1128,35 @@ def update_api_key(email:str, api_key:str)->dict:
             "status": "SUCCESS" if r==0 else "FAILED with "+str(error)
            }
 
+
+def update_convai_verification_status(email:str, verification_state: str) -> dict:
+    '''
+    Funtion to update the convai_verified status of the user after successful verification.
+    Returns: 
+    {
+        'status': 'SUCCESS'
+    }
+    '''
+
+    s = ""
+    UPDATE_CONVAI_VER_STATUS = """ UPDATE user_details SET convai_verified='{}' WHERE email ILIKE='{}' ; """
+    with connect_to_database(1) as conn:
+        try:
+            query = UPDATE_CONVAI_VER_STATUS.format(verification_state, email)
+
+            cursor_obj = conn.cursor()
+            cursor_obj.execute(query)
+            cursor_obj.close()
+
+            s = "SUCCESS"
+
+        except Exception as e:
+            #print(query)
+            print("Error in executing the query to update convai_verified attribute for the following user ",e)
+            s="ERROR : "+str(e)
+
+    return {"status":s}
+
 def get_conversations_from_db(sessionID : str, conversationContextLevel: int)->list:
     '''
     Function to retrieve a fix set of conversations from the database. The number of conversations to be retrieved from the database is specified by the conversationContextLevel parameter.
@@ -1130,3 +1172,4 @@ def get_conversations_from_db(sessionID : str, conversationContextLevel: int)->l
             #print(query)
             print("Error in executing the query for get_conversations_from_db : ",e)
     return r 
+
