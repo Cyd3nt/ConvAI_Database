@@ -4,6 +4,8 @@ from multiprocessing import Process
 import re
 import json
 
+from functools import lru_cache
+
 remove_special_character01 = lambda a : a.replace("'","''")
 remove_multi_new_line_characters = lambda a : re.sub(r'(\n\s*)+\n', '\n\n', a)
 
@@ -659,6 +661,7 @@ def fetch_word_list(api_key : str) -> list:
     
     return r
 
+@lru_cache(maxsize=10)
 def get_character_name(char_id : str) -> str:
     '''
     Function to retrieve the character name for a provided char id
@@ -1106,3 +1109,19 @@ def update_api_key(email:str, api_key:str)->dict:
             "email": email,
             "status": "SUCCESS" if r==0 else "FAILED with "+str(error)
            }
+
+def get_conversations_from_db(sessionID : str, conversationContextLevel: int)->list:
+    '''
+    Function to retrieve a fix set of conversations from the database. The number of conversations to be retrieved from the database is specified by the conversationContextLevel parameter.
+    '''
+    r = []
+    GET_INTERACTIONS= """  SELECT * FROM all_interactions WHERE session_id = '{}' ORDER BY timestamp ASC LIMIT '{}' ; """
+    with connect_to_database(1) as conn :
+        try:
+            query = GET_INTERACTIONS.format(sessionID, conversationContextLevel)
+            query_results = execute_and_return_results(query,conn)
+            r = query_results
+        except Exception as e:
+            #print(query)
+            print("Error in executing the query for get_conversations_from_db : ",e)
+    return r 
