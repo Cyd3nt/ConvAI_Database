@@ -1121,3 +1121,31 @@ def update_api_key(email:str, api_key:str)->dict:
             "email": email,
             "status": "SUCCESS" if r==0 else "FAILED with "+str(error)
            }
+
+def update_convai_verification_status(email:str, verification_state: str) -> dict:
+    '''
+    Funtion to update the convai_verified status of the user after successful verification.
+    Returns: 
+    {
+        'status': 'SUCCESS'
+    }
+    '''
+
+    s = ""
+    UPDATE_CONVAI_VER_STATUS = """ UPDATE user_details SET convai_verified='{}' WHERE email ILIKE='{}' ; """
+    with connect_to_database(1) as conn:
+        try:
+            query = UPDATE_CONVAI_VER_STATUS.format(verification_state, email)
+
+            cursor_obj = conn.cursor()
+            cursor_obj.execute(query)
+            cursor_obj.close()
+
+            s = "SUCCESS"
+
+        except Exception as e:
+            #print(query)
+            print("Error in executing the query for the following user ",e)
+            s="ERROR : "+str(e)
+
+    return {"status":s}
