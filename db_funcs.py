@@ -120,7 +120,7 @@ def get_api_key_info(email : str) -> str:
             api_key_query = GET_API_KEY_DETAILS.format(email)
             api_key_query_results = execute_and_return_results(api_key_query, conn)
 
-            convai_ver_status_query = GET_CONVAI_VERIFICATION_STATUS(email)
+            convai_ver_status_query = GET_CONVAI_VERIFICATION_STATUS.format(email)
             convai_ver_status_query_result = execute_and_return_results(convai_ver_status_query, conn)
         
             if len(api_key_query_results) > 0:
