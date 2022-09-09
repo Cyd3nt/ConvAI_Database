@@ -1205,7 +1205,7 @@ def update_convai_verification_status(email:str, verification_state: str ) -> di
     '''
 
     s = ""
-    UPDATE_CONVAI_VER_STATUS = """ UPDATE user_details SET convai_verified='{}' WHERE email ILIKE='{}' ; """
+    UPDATE_CONVAI_VER_STATUS = """ UPDATE user_details SET convai_verified='{}' WHERE email ILIKE '{}' ; """
     with connect_to_database(1) as conn:
         try:
             query = UPDATE_CONVAI_VER_STATUS.format(verification_state, email)
