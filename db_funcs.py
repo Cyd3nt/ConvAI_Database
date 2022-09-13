@@ -117,7 +117,7 @@ def get_api_key_info(email : str ) -> str:
                           FROM (SELECT api_key, generation_timestamp AS gt FROM api_map WHERE email = '{}' ORDER BY gt DESC) AS S
                           LIMIT 1; """
     GET_CONVAI_VERIFICATION_STATUS = """ SELECT convai_verified FROM user_details WHERE email ILIKE '{}'; """
-    user_verification_details = {"apiKey":-1}
+    user_verification_details = {"apiKey":-1, "convai_verified" : "not verified"}
     with connect_to_database(1) as conn:
         try :
             email = remove_special_character01(email)
@@ -145,7 +145,7 @@ def user_login(email : str ) -> dict:
     Arguments:
         email   : the user's email id
     Returns :
-        str     : returns the latest api_key registered against the email id;
+        str     : returns the latest api_key registered against the email id;k
                   will return -1 in-case no api_key found in the database
     IMPNOTE : This function performs the same functionality as the get_api_key_info(). 
               Only difference is the return type.
@@ -1239,3 +1239,50 @@ def get_conversations_from_db(sessionID : str, conversationContextLevel: int)->l
             print("Error in executing the query for get_conversations_from_db : ",e)
     return r 
 
+@lru_cache(maxsize=10)
+def get_character_id_from_name(char_name : str) -> str:
+    '''
+    Function to retrieve the character id for a provided char name
+    Arguments:
+        char_id                : character id
+    Returns :
+        str                    : character name, will return -1 if not found
+    '''
+    r = "-1"
+    GET_CHARACTER_NAME = """ SELECT  character_id FROM all_characters WHERE character_name = '{}' ;"""
+    with connect_to_database(1) as conn :
+        try:
+            query = GET_CHARACTER_NAME.format(char_name)
+            query_results = execute_and_return_results(query,conn)
+            #print("Query executed successfully")
+            if len(query_results)>0:
+                r = query_results[0]["character_id"]
+        except Exception as e:
+            #print(query)
+            print("Error in executing the query for get_character_name : ",e)
+    
+    return r
+
+def delete_char_for_user(char_id : str, user_id: str) -> str :
+    '''
+    Function to delete the character from all_characters
+    Arguments:
+        char_id : the character_id of the character to be deleted.
+    Returns :
+        str : will return the transaction status
+            "SUCCESS" : the character is deleted
+            "ERROR : <error message>" : error encountered during the operation 
+    '''
+    DELETE_CHARACTER = """ DELETE FROM all_characters WHERE character_id = '{}' and user_id = '{}';"""
+    with connect_to_database(1) as conn :
+        try:
+            query = DELETE_CHARACTER.format(char_id, user_id)
+            cursor_obj = conn.cursor()
+            cursor_obj.execute(query)
+            cursor_obj.close()
+            r = "SUCCESS"
+        except Exception as e:
+            #print(query)
+            print("Error in executing the query for delete_character : ",e)
+            r = """ ERROR: {} """.format(e)
+    return r
