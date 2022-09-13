@@ -113,7 +113,7 @@ def get_api_key_info(email : str) -> str:
                           FROM (SELECT api_key, generation_timestamp AS gt FROM api_map WHERE email = '{}' ORDER BY gt DESC) AS S
                           LIMIT 1; """
     GET_CONVAI_VERIFICATION_STATUS = """ SELECT convai_verified FROM user_details WHERE email ILIKE '{}'; """
-    user_verification_details = {"apiKey":-1}
+    user_verification_details = {"apiKey":-1, "convai_verified" : "not verified"}
     with connect_to_database(1) as conn:
         try :
             email = remove_special_character01(email)
