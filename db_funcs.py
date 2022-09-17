@@ -663,6 +663,7 @@ def update_status_wordtuning(status : str, api_key : str, word : str) -> int:
     
     return r
 
+@cached(cache = TTLCache(maxsize = 128, ttl = 30))
 def fetch_word_list(api_key : str) -> list:
     '''
     Function to retrieve the list of all the boosted words for an api_key
