@@ -686,7 +686,7 @@ def fetch_word_list(api_key : str) -> list:
     
     return r
 
-@cached(cache = TTLCache(maxsize = 128, ttl = 120)) 
+@cached(cache = TTLCache(maxsize = 128, ttl = 120))
 def get_character_name(char_id : str) -> str:
     '''
     Function to retrieve the character name for a provided char id
@@ -940,6 +940,7 @@ def get_username_from_apiKey(apiKey : str)-> str :
             print("Error in executing the query for get_username_from_apiKey : ",e)
     return r
 
+@cached(cache = TTLCache(maxsize = 128, ttl = 60))
 def get_voice_for_character(charID : str)-> str :
     '''
     Function to retrieve the voice for the provided charID
@@ -962,6 +963,7 @@ def get_voice_for_character(charID : str)-> str :
             print("Error in executing the query for get_voice_for_character : ",e)
     return r
 
+@cached(cache = TTLCache(maxsize = 128, ttl = 60))
 def get_character_actions(charID : str) -> list :
     '''
     Function to retrieve the available actions for a specific character
