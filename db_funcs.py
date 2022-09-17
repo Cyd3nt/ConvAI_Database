@@ -7,6 +7,7 @@ import json
 
 #for caching
 from cachetools import cached, TTLCache
+from functools import lru_cache
 
 remove_special_character01 = lambda a : a.replace("'","''")
 remove_multi_new_line_characters = lambda a : re.sub(r'(\n\s*)+\n', '\n\n', a)
