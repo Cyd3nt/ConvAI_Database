@@ -694,7 +694,7 @@ def get_character_name(char_id : str) -> str:
         str                    : character name, will return -1 if not found
     '''
     #see if the value is present in redis cache
-    r = character_name_cache_client.get(char_id).decode("utf-8")
+    r = character_name_cache_client.get(char_id)
     if r is None:
         #if not present, retrieve => set in redis => return
         r = "-1"
@@ -712,6 +712,8 @@ def get_character_name(char_id : str) -> str:
             except Exception as e:
                 #print(query)
                 print("Error in executing the query for get_character_name : ",e)
+    else:
+        r = r.decode("utf-8")
     return r
 
 def get_user_ID(api_key : str) -> str:
@@ -820,7 +822,7 @@ def get_backstory(char_id : str) -> str:
         str : will return the character's backstory as a string , if not found will return -1
     '''
     #see if the value is present in redis cache
-    r = character_backstory_cache_client.get(char_id).decode("utf-8")
+    r = character_backstory_cache_client.get(char_id)
     if r is None:
         r = "-1"
         GET_CHARACTER_BACKSTORY = """ SELECT backstory FROM character_metadata WHERE character_id = '{}' AND version=0;"""
@@ -837,6 +839,8 @@ def get_backstory(char_id : str) -> str:
             except Exception as e:
                 #print(query)
                 print("Error in executing the query for get_backstory : ",e)
+    else:
+        r = r.decode("utf-8")
     return r
 
 def delete_new_user(email : str)->str:
