@@ -713,8 +713,6 @@ def get_character_name(char_id : str) -> str:
             except Exception as e:
                 #print(query)
                 print("Error in executing the query for get_character_name : ",e)
-    else:
-        r = r.decode("utf-8")
     return r
 
 def get_user_ID(api_key : str) -> str:
@@ -840,8 +838,6 @@ def get_backstory(char_id : str) -> str:
             except Exception as e:
                 #print(query)
                 print("Error in executing the query for get_backstory : ",e)
-    else:
-        r = r.decode("utf-8")
     return r
 
 def delete_new_user(email : str)->str:
