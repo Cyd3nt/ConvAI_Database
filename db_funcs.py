@@ -179,6 +179,7 @@ def user_login(email : str) -> dict:
     
     return user_verification_details
 
+@cached(cache = TTLCache(maxsize = 128, ttl = 3600))
 def check_apiKey_existence(api_key : str) -> int:
     '''
     Function to check if the provided api_key exists in the database
