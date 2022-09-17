@@ -14,6 +14,7 @@ remove_multi_new_line_characters = lambda a : re.sub(r'(\n\s*)+\n', '\n\n', a)
 
 character_name_cache_client = connect_to_redis_cache(2)
 character_backstory_cache_client = connect_to_redis_cache(3)
+user_id_cache_client = connect_to_redis_cache(4)
 
 def register_user(user_id : str, username : str, email : str, company_name : str, company_role : str) -> int:
     '''
@@ -707,14 +708,14 @@ def get_character_name(char_id : str) -> str:
                 #print("Query executed successfully")
                 if len(query_results)>0:
                     r = query_results[0]["character_name"]
-                
-                #set the value in the cache
-                state = set_value_in_cache(character_name_cache_client, char_id, r)
+                    #set the value in the cache
+                    state = set_value_in_cache(character_name_cache_client, char_id, r)
             except Exception as e:
                 #print(query)
                 print("Error in executing the query for get_character_name : ",e)
     return r
 
+@cached(cache = TTLCache(maxsize = 128, ttl = 600))
 def get_user_ID(api_key : str) -> str:
     '''
     Function to retrieve the user id for a provided api key
@@ -723,18 +724,22 @@ def get_user_ID(api_key : str) -> str:
     Returns :
         str                    : user id, will return -1 if not found
     '''
-    r = "-1"
-    RETRIEVE_USERID = """ SELECT user_id FROM api_map WHERE api_key = '{}'; """
-    with connect_to_database(1) as conn :
-        try:
-            query = RETRIEVE_USERID.format(api_key)
-            query_results = execute_and_return_results(query,conn)
-            #print("Query executed successfully")
-            if len(query_results)>0:
-                r = query_results[0]["user_id"]
-        except Exception as e:
-            #print(query)
-            print("Error in executing the query for get_user_ID : ",e)
+    r = user_id_cache_client.get(api_key)
+    if r is None:
+        r = "-1"
+        RETRIEVE_USERID = """ SELECT user_id FROM api_map WHERE api_key = '{}'; """
+        with connect_to_database(1) as conn :
+            try:
+                query = RETRIEVE_USERID.format(api_key)
+                query_results = execute_and_return_results(query,conn)
+                #print("Query executed successfully")
+                if len(query_results)>0:
+                    r = query_results[0]["user_id"]
+                    #set the value in the cache
+                    state = set_value_in_cache(user_id_cache_client, api_key, r)
+            except Exception as e:
+                #print(query)
+                print("Error in executing the query for get_user_ID : ",e)
     
     return r
 
@@ -832,9 +837,8 @@ def get_backstory(char_id : str) -> str:
                 #print("Query executed successfully")
                 if len(query_results)>0:
                     r = query_results[0]["backstory"]
-                
-                #set the value in the cache
-                state = set_value_in_cache(character_backstory_cache_client, char_id, r)
+                    #set the value in the cache
+                    state = set_value_in_cache(character_backstory_cache_client, char_id, r)
             except Exception as e:
                 #print(query)
                 print("Error in executing the query for get_backstory : ",e)
