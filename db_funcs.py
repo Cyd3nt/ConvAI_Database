@@ -4,7 +4,7 @@ from multiprocessing import Process
 import re
 import json
 
-from functools import lru_cache
+from cachetools import cached, TTLCache
 
 remove_special_character01 = lambda a : a.replace("'","''")
 remove_multi_new_line_characters = lambda a : re.sub(r'(\n\s*)+\n', '\n\n', a)
@@ -679,7 +679,7 @@ def fetch_word_list(api_key : str) -> list:
     
     return r
 
-@lru_cache(maxsize=10)
+@cached(cache = TTLCache(maxsize = 128, ttl = 120)) 
 def get_character_name(char_id : str) -> str:
     '''
     Function to retrieve the character name for a provided char id
@@ -799,6 +799,7 @@ def get_chat_history(char_id : str, user_id : str, session_id : str = "-1",from_
             print("Error in executing the query for get_chat_history : ",e)
     return r
 
+@cached(cache = TTLCache(maxsize = 128, ttl = 120)) 
 def get_backstory(char_id : str) -> str:
     '''
     Function to retrieve character's backstory
