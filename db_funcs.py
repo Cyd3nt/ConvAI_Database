@@ -1,13 +1,18 @@
 from ConvAI_Database.db_utilities import connect_to_database, execute_and_return_results
+from main.global_resources.conv_cache import connect_to_redis_cache, set_value_in_cache
+
 from multiprocessing import Process
-#from db_utilities import connect_to_database, execute_and_return_results
 import re
 import json
 
+#for caching
 from cachetools import cached, TTLCache
 
 remove_special_character01 = lambda a : a.replace("'","''")
 remove_multi_new_line_characters = lambda a : re.sub(r'(\n\s*)+\n', '\n\n', a)
+
+character_name_cache_client = connect_to_redis_cache(2)
+character_backstory_cache_client = connect_to_redis_cache(3)
 
 def register_user(user_id : str, username : str, email : str, company_name : str, company_role : str) -> int:
     '''
@@ -688,19 +693,25 @@ def get_character_name(char_id : str) -> str:
     Returns :
         str                    : character name, will return -1 if not found
     '''
-    r = "-1"
-    GET_CHARACTER_NAME = """ SELECT  character_name FROM all_characters WHERE character_id = '{}' ;"""
-    with connect_to_database(1) as conn :
-        try:
-            query = GET_CHARACTER_NAME.format(char_id)
-            query_results = execute_and_return_results(query,conn)
-            #print("Query executed successfully")
-            if len(query_results)>0:
-                r = query_results[0]["character_name"]
-        except Exception as e:
-            #print(query)
-            print("Error in executing the query for get_character_name : ",e)
-    
+    #see if the value is present in redis cache
+    r = character_name_cache_client.get(char_id).decode("utf-8")
+    if r is None:
+        #if not present, retrieve => set in redis => return
+        r = "-1"
+        GET_CHARACTER_NAME = """ SELECT  character_name FROM all_characters WHERE character_id = '{}' ;"""
+        with connect_to_database(1) as conn :
+            try:
+                query = GET_CHARACTER_NAME.format(char_id)
+                query_results = execute_and_return_results(query,conn)
+                #print("Query executed successfully")
+                if len(query_results)>0:
+                    r = query_results[0]["character_name"]
+                
+                #set the value in the cache
+                state = set_value_in_cache(character_name_cache_client, char_id, r)
+            except Exception as e:
+                #print(query)
+                print("Error in executing the query for get_character_name : ",e)
     return r
 
 def get_user_ID(api_key : str) -> str:
@@ -808,19 +819,24 @@ def get_backstory(char_id : str) -> str:
     Returns :
         str : will return the character's backstory as a string , if not found will return -1
     '''
-    r = "-1"
-    GET_CHARACTER_BACKSTORY = """ SELECT backstory FROM character_metadata WHERE character_id = '{}' AND version=0;"""
-    with connect_to_database(1) as conn :
-        try:
-            query = GET_CHARACTER_BACKSTORY.format(char_id)
-            query_results = execute_and_return_results(query,conn)
-            #print("Query executed successfully")
-            if len(query_results)>0:
-                r = query_results[0]["backstory"]
-        except Exception as e:
-            #print(query)
-            print("Error in executing the query for get_backstory : ",e)
-    
+    #see if the value is present in redis cache
+    r = character_backstory_cache_client.get(char_id).decode("utf-8")
+    if r is None:
+        r = "-1"
+        GET_CHARACTER_BACKSTORY = """ SELECT backstory FROM character_metadata WHERE character_id = '{}' AND version=0;"""
+        with connect_to_database(1) as conn :
+            try:
+                query = GET_CHARACTER_BACKSTORY.format(char_id)
+                query_results = execute_and_return_results(query,conn)
+                #print("Query executed successfully")
+                if len(query_results)>0:
+                    r = query_results[0]["backstory"]
+                
+                #set the value in the cache
+                state = set_value_in_cache(character_backstory_cache_client, char_id, r)
+            except Exception as e:
+                #print(query)
+                print("Error in executing the query for get_backstory : ",e)
     return r
 
 def delete_new_user(email : str)->str:
