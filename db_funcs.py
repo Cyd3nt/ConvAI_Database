@@ -15,7 +15,7 @@ remove_multi_new_line_characters = lambda a : re.sub(r'(\n\s*)+\n', '\n\n', a)
 character_name_cache_client = connect_to_redis_cache(2)
 character_backstory_cache_client = connect_to_redis_cache(3)
 user_id_cache_client = connect_to_redis_cache(4)
-api_key_cache_client = connect_to_redis_cache(6)
+api_key_cache_client = connect_to_redis_cache(5)
 
 def register_user(user_id : str, username : str, email : str, company_name : str, company_role : str) -> int:
     '''
@@ -180,7 +180,7 @@ def user_login(email : str) -> dict:
     
     return user_verification_details
 
-@cached(cache = TTLCache(maxsize = 128, ttl = 60))
+@cached(cache = TTLCache(maxsize = 128, ttl = 3600))
 def check_apiKey_existence(api_key : str) -> int:
     '''
     Function to check if the provided api_key exists in the database
