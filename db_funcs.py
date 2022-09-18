@@ -15,7 +15,7 @@ remove_multi_new_line_characters = lambda a : re.sub(r'(\n\s*)+\n', '\n\n', a)
 character_name_cache_client = connect_to_redis_cache(2)
 character_backstory_cache_client = connect_to_redis_cache(3)
 user_id_cache_client = connect_to_redis_cache(4)
-#api_key_cache_client = connect_to_redis_cache(5)
+api_key_cache_client = connect_to_redis_cache(6)
 
 def register_user(user_id : str, username : str, email : str, company_name : str, company_role : str) -> int:
     '''
@@ -180,7 +180,7 @@ def user_login(email : str) -> dict:
     
     return user_verification_details
 
-@cached(cache = TTLCache(maxsize = 128, ttl = 3600))
+@cached(cache = TTLCache(maxsize = 128, ttl = 60))
 def check_apiKey_existence(api_key : str) -> int:
     '''
     Function to check if the provided api_key exists in the database
@@ -189,22 +189,22 @@ def check_apiKey_existence(api_key : str) -> int:
     Returns :
         int     : returns 0 in-case the api_key is found in the database else will return -1
     '''
-    # r = api_key_cache_client.get(api_key)
-    # if r is None:
-    r = -1 
-    CHECK_API_KEY_EXISTENCE = """ SELECT * FROM api_map WHERE api_key = '{}';"""
-    with connect_to_database(1) as conn:
-        try :
-            query = CHECK_API_KEY_EXISTENCE.format(api_key)
-            query_results = execute_and_return_results(query, conn)
-        
-            if len(query_results) > 0:
-                r = 0
-                # state = set_value_in_cache(api_key_cache_client, api_key, r)
-        except Exception as e:
-            #print(query)
-            print("Error in executing the query for check_apiKey_existence : ",e)
-                
+    r = api_key_cache_client.get(api_key)
+    if r is None:
+        r = -1 
+        CHECK_API_KEY_EXISTENCE = """ SELECT * FROM api_map WHERE api_key = '{}';"""
+        with connect_to_database(1) as conn:
+            try :
+                query = CHECK_API_KEY_EXISTENCE.format(api_key)
+                query_results = execute_and_return_results(query, conn)
+            
+                if len(query_results) > 0:
+                    r = 0
+                    state = set_value_in_cache(api_key_cache_client, api_key, r)
+            except Exception as e:
+                #print(query)
+                print("Error in executing the query for check_apiKey_existence : ",e)
+    print(api_key," ",r)
     return r
 
 def get_all_personal_characters(user_id : str) -> list:
