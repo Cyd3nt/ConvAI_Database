@@ -204,7 +204,8 @@ def check_apiKey_existence(api_key : str) -> int:
             except Exception as e:
                 #print(query)
                 print("Error in executing the query for check_apiKey_existence : ",e)
-    print(api_key," ",r)
+    else:
+        r = int(r)
     return r
 
 def get_all_personal_characters(user_id : str) -> list:
