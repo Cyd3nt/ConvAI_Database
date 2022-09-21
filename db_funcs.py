@@ -334,7 +334,7 @@ def get_all_character_collections() -> list:
             print("Error in executing the query for get_all_character_collections : ",e)
     return data
 
-def get_username(user_id : str, transaction_id : str ) -> str:
+def get_username(user_id : str) -> str:
     '''
     Function to retrieve the username for a user id from the database
     Arguments:
