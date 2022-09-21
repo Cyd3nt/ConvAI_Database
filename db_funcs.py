@@ -16,6 +16,7 @@ character_name_cache_client = connect_to_redis_cache(2)
 character_backstory_cache_client = connect_to_redis_cache(3)
 user_id_cache_client = connect_to_redis_cache(4)
 api_key_cache_client = connect_to_redis_cache(5)
+character_voice_cache_client = connect_to_redis_cache(6)
 
 def register_user(user_id : str, username : str, email : str, company_name : str, company_role : str) -> int:
     '''
@@ -668,7 +669,7 @@ def update_status_wordtuning(status : str, api_key : str, word : str) -> int:
     
     return r
 
-@cached(cache = TTLCache(maxsize = 128, ttl = 30))
+@cached(cache = TTLCache(maxsize = 128, ttl = 300))
 def fetch_word_list(api_key : str) -> list:
     '''
     Function to retrieve the list of all the boosted words for an api_key
@@ -947,27 +948,30 @@ def get_username_from_apiKey(apiKey : str)-> str :
             print("Error in executing the query for get_username_from_apiKey : ",e)
     return r
 
-@cached(cache = TTLCache(maxsize = 128, ttl = 60))
+@cached(cache = TTLCache(maxsize = 128, ttl = 120))
 def get_voice_for_character(charID : str)-> str :
     '''
     Function to retrieve the voice for the provided charID
     Arguments:
-        charID : the character id 
+        charID : the character id
     Returns :
         str : the voice of the character
         by default will return -1 (in case of any exception)
     '''
-    GET_CHARACTER_VOICE = """ SELECT voice_type FROM all_characters WHERE character_id = '{}';"""
-    r = "-1"
-    with connect_to_database(1) as conn :
-        try:
-            query = GET_CHARACTER_VOICE.format(charID)
-            query_results = execute_and_return_results(query,conn)
-            if len(query_results)>0:
-                r = query_results[0]["voice_type"]
-        except Exception as e:
-            #print(query)
-            print("Error in executing the query for get_voice_for_character : ",e)
+    r = character_voice_cache_client.get(charID)
+    if r is None:
+        GET_CHARACTER_VOICE = """ SELECT voice_type FROM all_characters WHERE character_id = '{}';"""
+        r = "-1"
+        with connect_to_database(1) as conn :
+            try:
+                query = GET_CHARACTER_VOICE.format(charID)
+                query_results = execute_and_return_results(query,conn)
+                if len(query_results)>0:
+                    r = query_results[0]["voice_type"]
+                    state = set_value_in_cache(character_voice_cache_client, charID, r)
+            except Exception as e:
+                #print(query)
+                print("Error in executing the query for get_voice_for_character : ",e)
     return r
 
 @cached(cache = TTLCache(maxsize = 128, ttl = 60))
