@@ -720,6 +720,7 @@ def fetch_word_list(api_key : str, transaction_id : str ) -> list:
             query_results = execute_and_return_results(query,conn)
             #print("Query executed successfully")
             if len(query_results)>0:
+                r = []
                 for i in query_results:
                     r.append(i["word"])
             elif len(query_results) == 0:
