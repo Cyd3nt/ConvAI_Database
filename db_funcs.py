@@ -353,21 +353,21 @@ def get_username(user_id : str) -> str:
             if len(query_results) > 0:
                 username = query_results[0]["username"]
         except Exception as e:
-            #print(query)
-            dbLoggingProcess = Process(
-                target = log_failed_transaction,
-                args = (
-                    transaction_id,
-                    "get_username",
-                    str(datetime.now()),
-                    json.dumps({
-                        "user_id": user_id,
-                    }),
-                    str(e),
-                    ""
-                )
-            )
-            dbLoggingProcess.start()
+            # print(query)
+            # dbLoggingProcess = Process(
+            #     target = log_failed_transaction,
+            #     args = (
+            #         transaction_id,
+            #         "get_username",
+            #         str(datetime.now()),
+            #         json.dumps({
+            #             "user_id": user_id,
+            #         }),
+            #         str(e),
+            #         ""
+            #     )
+            # )
+            # dbLoggingProcess.start()
             print("Error in executing the query for get_username : ",e)
     return username
 
