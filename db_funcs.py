@@ -1,13 +1,17 @@
-from ConvAI_Database.db_utilities import connect_to_database, execute_and_return_results
-from main.global_resources.conv_cache import connect_to_redis_cache, set_value_in_cache
-
+#Built-ins
 from multiprocessing import Process
 import re
 import json
+from datetime import datetime
+
+#Local imports
+from ConvAI_Database.db_utilities import connect_to_database, execute_and_return_results
+from main.global_resources.conv_cache import connect_to_redis_cache, set_value_in_cache
+from functools import lru_cache
+from .logging import log_failed_transaction
 
 #for caching
 from cachetools import cached, TTLCache
-from functools import lru_cache
 
 remove_special_character01 = lambda a : a.replace("'","''")
 remove_multi_new_line_characters = lambda a : re.sub(r'(\n\s*)+\n', '\n\n', a)
@@ -51,7 +55,7 @@ def register_user(user_id : str, username : str, email : str, company_name : str
             print("Error in executing the query for register_user : ",e) 
     return r
 
-def register_api_key(user_id : str, email : str, api_key : str) -> int:
+def register_api_key(user_id : str, email : str, api_key : str ) -> int:
     '''
     Function to register the api key for the user in the database
     Arguments:
@@ -78,7 +82,7 @@ def register_api_key(user_id : str, email : str, api_key : str) -> int:
             
     return r
 
-def log_user_activity(api_key : str, service_accessed : str, source : str, user_input : str) -> int:
+def log_user_activity(api_key : str, service_accessed : str, source : str, user_input : str ) -> int:
     '''
     Function to log users' activities in the database
     Arguments:
@@ -109,7 +113,7 @@ def log_user_activity(api_key : str, service_accessed : str, source : str, user_
             
     return r
 
-def get_api_key_info(email : str) -> str:
+def get_api_key_info(email : str ) -> str:
     '''
     Function to retrieve the user's api_key the database
     Arguments:
@@ -144,7 +148,7 @@ def get_api_key_info(email : str) -> str:
     
     return user_verification_details
 
-def user_login(email : str) -> dict:
+def user_login(email : str ) -> dict:
     '''
     Function to retrieve the user's api_key from the database
     Arguments:
@@ -181,8 +185,8 @@ def user_login(email : str) -> dict:
     
     return user_verification_details
 
-@cached(cache = TTLCache(maxsize = 128, ttl = 3600))
-def check_apiKey_existence(api_key : str) -> int:
+def check_apiKey_existence(api_key : str, transaction_id : str ) -> int:
+    #function level caching is removed for the time being
     '''
     Function to check if the provided api_key exists in the database
     Arguments:
@@ -198,13 +202,27 @@ def check_apiKey_existence(api_key : str) -> int:
             try :
                 query = CHECK_API_KEY_EXISTENCE.format(api_key)
                 query_results = execute_and_return_results(query, conn)
-            
+                
                 if len(query_results) > 0:
                     r = 0
                     state = set_value_in_cache(api_key_cache_client, api_key, r)
             except Exception as e:
                 #print(query)
-                print("Error in executing the query for check_apiKey_existence : ",e)
+                dbLoggingProcess = Process(
+                    target = log_failed_transaction,
+                    args = (
+                        transaction_id,
+                        "check_apiKey_existence",
+                        str(datetime.now()),
+                        json.dumps({
+                            "api_key": api_key,
+                        }),
+                        str(e),
+                        ""
+                    )
+                )
+                dbLoggingProcess.start()
+                # print("Error in executing the query for check_apiKey_existence : ",e)        
     else:
         r = int(r)
     return r
@@ -234,7 +252,7 @@ def get_all_personal_characters(user_id : str) -> list:
             
     return data
 
-def get_character_details(char_id : str) -> dict:
+def get_character_details(char_id : str ) -> dict:
     '''
     Function to retrieve the characters details from the database
     Arguments:
@@ -259,7 +277,7 @@ def get_character_details(char_id : str) -> dict:
 
     return data
 
-def get_doc_store_file_link(char_id : str) -> str:
+def get_doc_store_file_link(char_id : str ) -> str:
     '''
     Function to retrieve the doc store file link for a character from the database
     Arguments:
@@ -284,7 +302,7 @@ def get_doc_store_file_link(char_id : str) -> str:
             raise Exception("Error in executing the query for get_doc_store_file_link : ",e)
     return doc_store_file_link
 
-def get_all_characters_from_collection(collection_name : str) -> list:
+def get_all_characters_from_collection(collection_name : str ) -> list:
     '''
     Function to retrieve the details of all the characters from a particular collection from the database
     Arguments:
@@ -349,7 +367,21 @@ def get_username(user_id : str) -> str:
             if len(query_results) > 0:
                 username = query_results[0]["username"]
         except Exception as e:
-            #print(query)
+            # print(query)
+            # dbLoggingProcess = Process(
+            #     target = log_failed_transaction,
+            #     args = (
+            #         transaction_id,
+            #         "get_username",
+            #         str(datetime.now()),
+            #         json.dumps({
+            #             "user_id": user_id,
+            #         }),
+            #         str(e),
+            #         ""
+            #     )
+            # )
+            # dbLoggingProcess.start()
             print("Error in executing the query for get_username : ",e)
     return username
 
@@ -369,7 +401,7 @@ def insert_new_character(
     character_actions : list = [],
     character_emotions : list = [],
     collection_name : str = 'convai_default_collection'
-) -> str:
+    ) -> str:
     '''
     Function to insert a new character into the database
     Arguments:
@@ -454,7 +486,7 @@ def get_user_count() -> int:
             print("Error in executing the query for get_user_count : ",e)
     return usercount
 
-def insert_feedback(username : str, user_email : str, rating : str, feedback : str, page : str) -> int:
+def insert_feedback(username : str, user_email : str, rating : str, feedback : str, page : str ) -> int:
     '''
     Function to insert user feedback into the database
     Arguments:
@@ -607,7 +639,7 @@ def update_character_details(updated_data_dict : dict ) -> int :
         
     return r
 
-def add_new_word(username : str, api_key : str, word : str, pronunciation : str, status : str) -> int:
+def add_new_word( api_key : str, word : str, pronunciation : str, status : str, transaction_id : str, username : str = "default_name" ) -> int:
     '''
     Function to add new words for boosting to the database
     Arguments:
@@ -636,11 +668,28 @@ def add_new_word(username : str, api_key : str, word : str, pronunciation : str,
             r = 0
         except Exception as e:
             #print(query)
-            print("Error in executing the query for add_new_word : ",e)
+            dbLoggingProcess = Process(
+                target = log_failed_transaction,
+                args = (
+                    transaction_id,
+                    "add_new_word",
+                    str(datetime.now()),
+                    json.dumps({
+                        "api_key": api_key,
+                        "word": word,
+                        "pronunciation": pronunciation,
+                        "status": status,
+                    }),
+                    str(e),
+                    ""
+                )
+            )
+            dbLoggingProcess.start()
+            # print("Error in executing the query for add_new_word : ",e)
     
     return r
 
-def update_status_wordtuning(status : str, api_key : str, word : str) -> int:
+def update_status_wordtuning(status : str, api_key : str, word : str ) -> int:
     '''
     Function to update the boosting status for a word
     Arguments:
@@ -669,8 +718,7 @@ def update_status_wordtuning(status : str, api_key : str, word : str) -> int:
     
     return r
 
-@cached(cache = TTLCache(maxsize = 128, ttl = 300))
-def fetch_word_list(api_key : str) -> list:
+def fetch_word_list(api_key : str, transaction_id : str ) -> list:
     '''
     Function to retrieve the list of all the boosted words for an api_key
     Arguments:
@@ -679,22 +727,40 @@ def fetch_word_list(api_key : str) -> list:
         list : list of boosted words, if none found, would return empty list
     '''
     GET_WORD_LIST_FOR_API_KEY = """SELECT word FROM word_finetuning WHERE api_key = '{}' ;"""
-    r = []
+    r = [-1]
     with connect_to_database(2) as conn :
         try:
             query = GET_WORD_LIST_FOR_API_KEY.format(api_key)
             query_results = execute_and_return_results(query,conn)
             #print("Query executed successfully")
             if len(query_results)>0:
+                r = []
                 for i in query_results:
                     r.append(i["word"])
+            elif len(query_results) == 0:
+                r = []
+
         except Exception as e:
             #print(query)
-            print("Error in executing the query for fetch_word_list : ",e)
+            dbLoggingProcess = Process(
+                target = log_failed_transaction,
+                args = (
+                    transaction_id,
+                    "fetch_word_list",
+                    str(datetime.now()),
+                    json.dumps({
+                        "api_key": api_key,
+                    }),
+                    str(e),
+                    ""
+                )
+            )
+            dbLoggingProcess.start()
+            # print("Error in executing the query for fetch_word_list : ",e)
     
     return r
 
-@cached(cache = TTLCache(maxsize = 128, ttl = 120))
+@cached(cache = TTLCache(maxsize = 128, ttl = 600))
 def get_character_name(char_id : str) -> str:
     '''
     Function to retrieve the character name for a provided char id
@@ -786,7 +852,7 @@ def write_to_chat_history(char_id : str, user_id : str, user_query: str, bot_tex
 
     return r
 
-def get_chat_history(char_id : str, user_id : str, session_id : str = "-1",from_time : str = "-1", to_time : str = "-1") -> list:
+def get_chat_history(char_id : str, user_id : str, session_id : str = "-1",from_time : str = "-1", to_time : str = "-1" ) -> list:
     '''
     Function to retrieve chat history
     Arguments:
@@ -824,7 +890,7 @@ def get_chat_history(char_id : str, user_id : str, session_id : str = "-1",from_
             print("Error in executing the query for get_chat_history : ",e)
     return r
 
-@cached(cache = TTLCache(maxsize = 128, ttl = 120)) 
+@cached(cache = TTLCache(maxsize = 128, ttl = 120))
 def get_backstory(char_id : str) -> str:
     '''
     Function to retrieve character's backstory
@@ -875,7 +941,7 @@ def delete_new_user(email : str)->str:
             r = """ ERROR: {} """.format(e)
     return r
 
-def user_registration(uid, username, email, api_key, company_name, company_role) -> dict:
+def user_registration(uid, username, email, api_key, company_name, company_role ) -> dict:
     '''
     Function to streamline the user's registration process
     Arguments:
@@ -903,7 +969,7 @@ def user_registration(uid, username, email, api_key, company_name, company_role)
     else:
         return {"status":"ERROR in creating new user."}
 
-def delete_char_ID(char_id : str) -> str :
+def delete_char_ID(char_id : str ) -> str :
     '''
     Function to delete the character from all_characters
     Arguments:
@@ -996,7 +1062,7 @@ def get_character_actions(charID : str) -> list :
             print("Error in executing the query for get_character_actions : ",e)
     return r
 
-def insert_interaction_prompt_data(prompt : str, temperature : float, max_tokens : int, top_p : float, frequency_penalty : float, presence_penalty : float, stop : str, response : str , model : str = 'NULL', engine : str = 'NULL') -> int :
+def insert_interaction_prompt_data( prompt : str, temperature : float, max_tokens : int, top_p : float, frequency_penalty : float, presence_penalty : float, stop : str, response : str , model : str = 'NULL', engine : str = 'NULL' ) -> int :
     '''
     Function to insert openai request and responses for fututre use
     Arguments:
@@ -1089,7 +1155,7 @@ def user_update(email : str, username : str, company_name : str, company_role: s
 
     return {"status":s}
 
-def get_character_emotions(charID : str) -> list:
+def get_character_emotions(charID : str ) -> list:
     '''
     Function to retrieve the available emotions for a specific character
     Arguments:
@@ -1164,7 +1230,7 @@ def update_api_key(email:str, api_key:str)->dict:
            }
 
 
-def update_convai_verification_status(email:str, verification_state: str) -> dict:
+def update_convai_verification_status(email:str, verification_state: str ) -> dict:
     '''
     Funtion to update the convai_verified status of the user after successful verification.
     Returns: 
