@@ -382,7 +382,7 @@ def get_all_character_collections() -> list:
             print("Error in executing the query for get_all_character_collections : ",e)
     return data
 
-def get_username(user_id : str, transaction_id : str ) -> str:
+def get_username(user_id : str) -> str:
     '''
     Function to retrieve the username for a user id from the database
     Arguments:
@@ -401,21 +401,21 @@ def get_username(user_id : str, transaction_id : str ) -> str:
             if len(query_results) > 0:
                 username = query_results[0]["username"]
         except Exception as e:
-            #print(query)
-            dbLoggingProcess = Process(
-                target = log_failed_transaction,
-                args = (
-                    transaction_id,
-                    "get_username",
-                    str(datetime.now()),
-                    json.dumps({
-                        "user_id": user_id,
-                    }),
-                    str(e),
-                    ""
-                )
-            )
-            dbLoggingProcess.start()
+            # print(query)
+            # dbLoggingProcess = Process(
+            #     target = log_failed_transaction,
+            #     args = (
+            #         transaction_id,
+            #         "get_username",
+            #         str(datetime.now()),
+            #         json.dumps({
+            #             "user_id": user_id,
+            #         }),
+            #         str(e),
+            #         ""
+            #     )
+            # )
+            # dbLoggingProcess.start()
             print("Error in executing the query for get_username : ",e)
     return username
 
