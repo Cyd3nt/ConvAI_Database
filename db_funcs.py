@@ -185,7 +185,7 @@ def user_login(email : str ) -> dict:
     
     return user_verification_details
 
-def check_apiKey_existence(api_key : str, transaction_id : str ) -> int:
+def check_apiKey_existence(api_key : str, transaction_id : str = 'default' ) -> int:
     #function level caching is removed for the time being
     '''
     Function to check if the provided api_key exists in the database
@@ -718,7 +718,7 @@ def update_status_wordtuning(status : str, api_key : str, word : str ) -> int:
     
     return r
 
-def fetch_word_list(api_key : str, transaction_id : str ) -> list:
+def fetch_word_list(api_key : str, transaction_id : str = 'default' ) -> list:
     '''
     Function to retrieve the list of all the boosted words for an api_key
     Arguments:
