@@ -16,11 +16,11 @@ from cachetools import cached, TTLCache
 remove_special_character01 = lambda a : a.replace("'","''")
 remove_multi_new_line_characters = lambda a : re.sub(r'(\n\s*)+\n', '\n\n', a)
 
-character_name_cache_client = connect_to_redis_cache(2)
-character_backstory_cache_client = connect_to_redis_cache(3)
+#character_name_cache_client = connect_to_redis_cache(2)
+#character_backstory_cache_client = connect_to_redis_cache(3)
 user_id_cache_client = connect_to_redis_cache(4)
 api_key_cache_client = connect_to_redis_cache(5)
-character_voice_cache_client = connect_to_redis_cache(6)
+#character_voice_cache_client = connect_to_redis_cache(6)
 
 def register_user(user_id : str, username : str, email : str, company_name : str, company_role : str) -> int:
     '''
@@ -760,7 +760,7 @@ def fetch_word_list(api_key : str, transaction_id : str = 'default' ) -> list:
     
     return r
 
-@cached(cache = TTLCache(maxsize = 128, ttl = 600))
+#@cached(cache = TTLCache(maxsize = 128, ttl = 30))
 def get_character_name(char_id : str) -> str:
     '''
     Function to retrieve the character name for a provided char id
@@ -770,23 +770,23 @@ def get_character_name(char_id : str) -> str:
         str                    : character name, will return -1 if not found
     '''
     #see if the value is present in redis cache
-    r = character_name_cache_client.get(char_id)
-    if r is None:
-        #if not present, retrieve => set in redis => return
-        r = "-1"
-        GET_CHARACTER_NAME = """ SELECT  character_name FROM all_characters WHERE character_id = '{}' ;"""
-        with connect_to_database(1) as conn :
-            try:
-                query = GET_CHARACTER_NAME.format(char_id)
-                query_results = execute_and_return_results(query,conn)
-                #print("Query executed successfully")
-                if len(query_results)>0:
-                    r = query_results[0]["character_name"]
-                    #set the value in the cache
-                    state = set_value_in_cache(character_name_cache_client, char_id, r)
-            except Exception as e:
-                #print(query)
-                print("Error in executing the query for get_character_name : ",e)
+    #r = character_name_cache_client.get(char_id)
+    #if r is None:
+    #if not present, retrieve => set in redis => return
+    r = "-1"
+    GET_CHARACTER_NAME = """ SELECT  character_name FROM all_characters WHERE character_id = '{}' ;"""
+    with connect_to_database(1) as conn :
+        try:
+            query = GET_CHARACTER_NAME.format(char_id)
+            query_results = execute_and_return_results(query,conn)
+            #print("Query executed successfully")
+            if len(query_results)>0:
+                r = query_results[0]["character_name"]
+                #set the value in the cache
+                #state = set_value_in_cache(character_name_cache_client, char_id, r)
+        except Exception as e:
+            #print(query)
+            print("Error in executing the query for get_character_name : ",e)
     return r
 
 @cached(cache = TTLCache(maxsize = 128, ttl = 600))
@@ -890,7 +890,7 @@ def get_chat_history(char_id : str, user_id : str, session_id : str = "-1",from_
             print("Error in executing the query for get_chat_history : ",e)
     return r
 
-@cached(cache = TTLCache(maxsize = 128, ttl = 120))
+#@cached(cache = TTLCache(maxsize = 128, ttl = 120))
 def get_backstory(char_id : str) -> str:
     '''
     Function to retrieve character's backstory
@@ -900,22 +900,22 @@ def get_backstory(char_id : str) -> str:
         str : will return the character's backstory as a string , if not found will return -1
     '''
     #see if the value is present in redis cache
-    r = character_backstory_cache_client.get(char_id)
-    if r is None:
-        r = "-1"
-        GET_CHARACTER_BACKSTORY = """ SELECT backstory FROM character_metadata WHERE character_id = '{}' AND version=0;"""
-        with connect_to_database(1) as conn :
-            try:
-                query = GET_CHARACTER_BACKSTORY.format(char_id)
-                query_results = execute_and_return_results(query,conn)
-                #print("Query executed successfully")
-                if len(query_results)>0:
-                    r = query_results[0]["backstory"]
-                    #set the value in the cache
-                    state = set_value_in_cache(character_backstory_cache_client, char_id, r)
-            except Exception as e:
-                #print(query)
-                print("Error in executing the query for get_backstory : ",e)
+    #r = character_backstory_cache_client.get(char_id)
+    #if r is None:
+    r = "-1"
+    GET_CHARACTER_BACKSTORY = """ SELECT backstory FROM character_metadata WHERE character_id = '{}' AND version=0;"""
+    with connect_to_database(1) as conn :
+        try:
+            query = GET_CHARACTER_BACKSTORY.format(char_id)
+            query_results = execute_and_return_results(query,conn)
+            #print("Query executed successfully")
+            if len(query_results)>0:
+                r = query_results[0]["backstory"]
+                #set the value in the cache
+                #state = set_value_in_cache(character_backstory_cache_client, char_id, r)
+        except Exception as e:
+            #print(query)
+            print("Error in executing the query for get_backstory : ",e)
     return r
 
 def delete_new_user(email : str)->str:
@@ -1014,7 +1014,7 @@ def get_username_from_apiKey(apiKey : str)-> str :
             print("Error in executing the query for get_username_from_apiKey : ",e)
     return r
 
-@cached(cache = TTLCache(maxsize = 128, ttl = 120))
+#@cached(cache = TTLCache(maxsize = 128, ttl = 30))
 def get_voice_for_character(charID : str)-> str :
     '''
     Function to retrieve the voice for the provided charID
@@ -1024,20 +1024,20 @@ def get_voice_for_character(charID : str)-> str :
         str : the voice of the character
         by default will return -1 (in case of any exception)
     '''
-    r = character_voice_cache_client.get(charID)
-    if r is None:
-        GET_CHARACTER_VOICE = """ SELECT voice_type FROM all_characters WHERE character_id = '{}';"""
-        r = "-1"
-        with connect_to_database(1) as conn :
-            try:
-                query = GET_CHARACTER_VOICE.format(charID)
-                query_results = execute_and_return_results(query,conn)
-                if len(query_results)>0:
-                    r = query_results[0]["voice_type"]
-                    state = set_value_in_cache(character_voice_cache_client, charID, r)
-            except Exception as e:
-                #print(query)
-                print("Error in executing the query for get_voice_for_character : ",e)
+    #r = character_voice_cache_client.get(charID)
+    #if r is None:
+    GET_CHARACTER_VOICE = """ SELECT voice_type FROM all_characters WHERE character_id = '{}';"""
+    r = "-1"
+    with connect_to_database(1) as conn :
+        try:
+            query = GET_CHARACTER_VOICE.format(charID)
+            query_results = execute_and_return_results(query,conn)
+            if len(query_results)>0:
+                r = query_results[0]["voice_type"]
+                #state = set_value_in_cache(character_voice_cache_client, charID, r)
+        except Exception as e:
+            #print(query)
+            print("Error in executing the query for get_voice_for_character : ",e)
     return r
 
 @cached(cache = TTLCache(maxsize = 128, ttl = 60))
