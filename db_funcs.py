@@ -569,6 +569,8 @@ def update_character_metadata(char_id : str, backstory : str, doc_store_file_lin
             cursor_obj.close()
             #print("Query executed successfully")
             r = 0
+            character_backstory_cache.update(char_id, backstory)
+
         except Exception as e:
             #print(query)
             print("Error in executing the query for update_character_backstory : ",e)
@@ -615,6 +617,7 @@ def update_character_details(updated_data_dict : dict ) -> int :
 
 
             if isinstance(updated_data_dict["character_actions"], list):
+                action_list = updated_data_dict["character_actions"].copy() 
                 updated_data_dict["character_actions"] = "{" + ",".join(updated_data_dict["character_actions"]) + "}"
 
             if isinstance(updated_data_dict["character_emotions"], list):
@@ -636,6 +639,11 @@ def update_character_details(updated_data_dict : dict ) -> int :
             cursor_obj.execute(query)
             cursor_obj.close()
             r =0
+
+            character_name_cache.update(updated_data_dict['character_id'],updated_data_dict['character_name'])
+            character_voice_cache.update(updated_data_dict['character_id'], updated_data_dict['voice_type'])
+            character_actions_cache.update(updated_data_dict['character_id'],action_list)
+        
         except Exception as e:
             #print(query)
             print("Error in executing the query for update_character_details : ",e)
@@ -667,8 +675,15 @@ def add_new_word( api_key : str, word : str, pronunciation : str, status : str, 
             cursor_obj = conn.cursor()
             cursor_obj.execute(query)
             cursor_obj.close()
-            #print("Query executed successfully")
             r = 0
+            
+            word_list = word_list_cache.get(api_key)
+            if word_list is None:
+                _ = fetch_word_list(api_key)
+            else:
+                word_list.append(word)
+                word_list_cache.update(api_key, word_list)
+            
         except Exception as e:
             #print(query)
             dbLoggingProcess = Process(
@@ -688,7 +703,6 @@ def add_new_word( api_key : str, word : str, pronunciation : str, status : str, 
                 )
             )
             dbLoggingProcess.start()
-            # print("Error in executing the query for add_new_word : ",e)
     
     return r
 
@@ -713,10 +727,8 @@ def update_status_wordtuning(status : str, api_key : str, word : str ) -> int:
             cursor_obj = conn.cursor()
             cursor_obj.execute(query)
             cursor_obj.close()
-            #print("Query executed successfully")
             r = 0
         except Exception as e:
-            #print(query)
             print("Error in executing the query for update_status_wordtuning : ",e)
     
     return r
@@ -747,7 +759,6 @@ def fetch_word_list(api_key : str, transaction_id : str = 'default' ) -> list:
                     word_list_cache.add(api_key, r)
 
             except Exception as e:
-                #print(query)
                 dbLoggingProcess = Process(
                     target = log_failed_transaction,
                     args = (
