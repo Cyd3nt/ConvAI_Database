@@ -1014,7 +1014,11 @@ def get_username_from_apiKey(apiKey : str)-> str :
             print("Error in executing the query for get_username_from_apiKey : ",e)
     return r
 
+<<<<<<< HEAD
 #@cached(cache = TTLCache(maxsize = 128, ttl = 30))
+=======
+#@cached(cache = TTLCache(maxsize = 128, ttl = 120))
+>>>>>>> 0a401abe3299eba9e7f2bd515479eb8298b680af
 def get_voice_for_character(charID : str)-> str :
     '''
     Function to retrieve the voice for the provided charID
