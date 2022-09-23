@@ -443,6 +443,7 @@ def insert_new_character(
         try:
             state_names = [remove_special_character01(state) for state in state_names]
             character_actions = [remove_special_character01(action) for action in character_actions]
+            actions_list = character_actions.copy()
             character_emotions = [remove_special_character01(emotion) for emotion in character_emotions]
 
             state_names = "{" + ",".join(state_names) + "}"
@@ -462,6 +463,11 @@ def insert_new_character(
 
             if len(query_results) > 0:
                 char_id = query_results[0]["character_id"]
+                
+                character_name_cache.add(char_id, character_name)
+                character_voice_cache.add(char_id, voice_type)
+                character_actions_cache.add(char_id, actions_list)
+
         except Exception as e:
             #print(query)
             print("Error in executing the query for insert_new_character : ",e)
@@ -676,7 +682,7 @@ def add_new_word( api_key : str, word : str, pronunciation : str, status : str, 
             cursor_obj.execute(query)
             cursor_obj.close()
             r = 0
-            
+
             word_list = word_list_cache.get(api_key)
             if word_list is None:
                 _ = fetch_word_list(api_key)
