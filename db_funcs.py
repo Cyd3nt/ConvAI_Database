@@ -22,7 +22,7 @@ user_id_cache_client = connect_to_redis_cache(4)
 api_key_cache_client = connect_to_redis_cache(5)
 #character_voice_cache_client = connect_to_redis_cache(6)
 
-def register_user(user_id : str, username : str, email : str, company_name : str, company_role : str) -> int:
+def register_user(user_id : str, username : str, email : str, company_name : str, company_role : str, transaction_id: str = "default") -> int:
     '''
     Function to register the new user in the database
     Arguments:
@@ -196,7 +196,7 @@ def get_api_key_info(email : str, transaction_id: str ) -> str:
     
     return user_verification_details
 
-def user_login(email : str ) -> dict:
+def user_login(email : str, transaction_id: str = "default" ) -> dict:
     '''
     Function to retrieve the user's api_key from the database
     Arguments:
@@ -229,7 +229,21 @@ def user_login(email : str ) -> dict:
 
         except Exception as e:
             #print(query)
-            print("Error in executing the query for user_login : ",e)
+            # print("Error in executing the query for user_login : ",e)
+            dbLoggingProcess = Process(
+                target = log_failed_transaction,
+                args = (
+                    transaction_id,
+                    "user_login",
+                    str(datetime.now()),
+                    json.dumps({
+                        "email": email,
+                    }),
+                    str(e),
+                    ""
+                )
+            )
+            dbLoggingProcess.start()
     
     return user_verification_details
 
@@ -1020,20 +1034,43 @@ def user_registration(uid, username, email, api_key, company_name, company_role,
                Keyword is "STATUS" , if 0 then it means successful, else failure. 
                The negative int will denote at whch level it failed.
     '''
-    user_registration = register_user(uid, username, email, company_name, company_role, transaction_id)
-    if user_registration == 0:
-        api_registration = register_api_key(uid, email, api_key, transaction_id)
-        if api_registration == 0:
-            return {"STATUS":"SUCCESS"}
+    try:
+        user_registration = register_user(uid, username, email, company_name, company_role, transaction_id)
+        if user_registration == 0:
+            api_registration = register_api_key(uid, email, api_key, transaction_id)
+            if api_registration == 0:
+                return {"STATUS":"SUCCESS"}
+            else:
+                #async process
+                deleteUserProcess = Process(
+                    target=delete_new_user, args=(email)
+                )
+                deleteUserProcess.start()
+
+                return {"STATUS":"DB Error in api registration for the user."}
         else:
-            #async process
-            deleteUserProcess = Process(
-                target=delete_new_user, args=(email)
+            return {"STATUS":"DB Error in creating new user."}
+    
+    except Exception as e:
+        dbLoggingProcess = Process(
+                target = log_failed_transaction,
+                args = (
+                    transaction_id,
+                    "user_registration",
+                    str(datetime.now()),
+                    json.dumps({
+                        "user_id": uid,
+                        "username": username,
+                        "email": email,
+                        "organisation": company_name,
+                        "user_designation": company_role,
+                    }),
+                    str(e),
+                    ""
+                )
             )
-            deleteUserProcess.start()
-            return {"STATUS":"ERROR in api registration for the user."}
-    else:
-        return {"STATUS":"ERROR in creating new user."}
+        dbLoggingProcess.start()
+        return {"STATUS": "DB Error in user-registration function"}
 
 def delete_char_ID(char_id : str ) -> str :
     '''
@@ -1180,7 +1217,9 @@ def get_user_details(email : str, transaction_id: str)->dict:
     'organisation': None, 
     'user_designation': None}
     '''
-    r={}
+    r={
+        "count": -1
+    }
     GET_USER_DETAILS = """SELECT * FROM user_details WHERE email = '{}'; """
     with connect_to_database(1) as conn :
         try:
@@ -1188,6 +1227,8 @@ def get_user_details(email : str, transaction_id: str)->dict:
             query_results = execute_and_return_results(query,conn)
             if len(query_results)>0:
                 r = query_results[0]
+            elif len(query_results) == 0:
+                r["count"] = 0
         except Exception as e:
             #print(query)
             # print("Error in executing the query for get_chat_history : ",e)
@@ -1248,7 +1289,7 @@ def user_update(email : str, username : str, company_name : str, company_role: s
                 )
             )
             dbLoggingProcess.start()
-            s="ERROR : "+str(e)
+            s="DB Error : "+str(e)
 
     return {"STATUS":s}
 
