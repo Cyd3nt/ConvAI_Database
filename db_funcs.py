@@ -1,19 +1,28 @@
 #Built-ins
 from multiprocessing import Process
-#from db_utilities import connect_to_database, execute_and_return_results
 import re
 import json
 from datetime import datetime
 
 #Local imports
 from ConvAI_Database.db_utilities import connect_to_database, execute_and_return_results
+from main.global_resources.conv_cache import connect_to_redis_cache, set_value_in_cache
 from functools import lru_cache
 from .logging import log_failed_transaction
+
+#for caching
+from cachetools import cached, TTLCache
 
 remove_special_character01 = lambda a : a.replace("'","''")
 remove_multi_new_line_characters = lambda a : re.sub(r'(\n\s*)+\n', '\n\n', a)
 
-def register_user(user_id : str, username : str, email : str, company_name : str, company_role : str, transaction_id: str ) -> int:
+#character_name_cache_client = connect_to_redis_cache(2)
+#character_backstory_cache_client = connect_to_redis_cache(3)
+user_id_cache_client = connect_to_redis_cache(4)
+api_key_cache_client = connect_to_redis_cache(5)
+#character_voice_cache_client = connect_to_redis_cache(6)
+
+def register_user(user_id : str, username : str, email : str, company_name : str, company_role : str) -> int:
     '''
     Function to register the new user in the database
     Arguments:
@@ -224,7 +233,8 @@ def user_login(email : str ) -> dict:
     
     return user_verification_details
 
-def check_apiKey_existence(api_key : str, transaction_id : str ) -> int:
+def check_apiKey_existence(api_key : str, transaction_id : str = 'default' ) -> int:
+    #function level caching is removed for the time being
     '''
     Function to check if the provided api_key exists in the database
     Arguments:
@@ -232,33 +242,37 @@ def check_apiKey_existence(api_key : str, transaction_id : str ) -> int:
     Returns :
         int     : returns 0 in-case the api_key is found in the database else will return -1
     '''
-    r = -1 
-    CHECK_API_KEY_EXISTENCE = """ SELECT * FROM api_map WHERE api_key = '{}';"""
-    with connect_to_database(1) as conn:
-        try :
-            query = CHECK_API_KEY_EXISTENCE.format(api_key)
-            query_results = execute_and_return_results(query, conn)
-        
-            if len(query_results) > 0:
-                r = 0
-        except Exception as e:
-            #print(query)
-            dbLoggingProcess = Process(
-                target = log_failed_transaction,
-                args = (
-                    transaction_id,
-                    "check_apiKey_existence",
-                    str(datetime.now()),
-                    json.dumps({
-                        "api_key": api_key,
-                    }),
-                    str(e),
-                    ""
+    r = api_key_cache_client.get(api_key)
+    if r is None:
+        r = -1 
+        CHECK_API_KEY_EXISTENCE = """ SELECT * FROM api_map WHERE api_key = '{}';"""
+        with connect_to_database(1) as conn:
+            try :
+                query = CHECK_API_KEY_EXISTENCE.format(api_key)
+                query_results = execute_and_return_results(query, conn)
+                
+                if len(query_results) > 0:
+                    r = 0
+                    state = set_value_in_cache(api_key_cache_client, api_key, r)
+            except Exception as e:
+                #print(query)
+                dbLoggingProcess = Process(
+                    target = log_failed_transaction,
+                    args = (
+                        transaction_id,
+                        "check_apiKey_existence",
+                        str(datetime.now()),
+                        json.dumps({
+                            "api_key": api_key,
+                        }),
+                        str(e),
+                        ""
+                    )
                 )
-            )
-            dbLoggingProcess.start()
-            # print("Error in executing the query for check_apiKey_existence : ",e)
-            
+                dbLoggingProcess.start()
+                # print("Error in executing the query for check_apiKey_existence : ",e)        
+    else:
+        r = int(r)
     return r
 
 def get_all_personal_characters(user_id : str) -> list:
@@ -770,7 +784,7 @@ def update_status_wordtuning(status : str, api_key : str, word : str ) -> int:
     
     return r
 
-def fetch_word_list(api_key : str, transaction_id : str ) -> list:
+def fetch_word_list(api_key : str, transaction_id : str = 'default' ) -> list:
     '''
     Function to retrieve the list of all the boosted words for an api_key
     Arguments:
@@ -812,8 +826,8 @@ def fetch_word_list(api_key : str, transaction_id : str ) -> list:
     
     return r
 
-@lru_cache(maxsize=10)
-def get_character_name(char_id : str ) -> str:
+#@cached(cache = TTLCache(maxsize = 128, ttl = 600))
+def get_character_name(char_id : str) -> str:
     '''
     Function to retrieve the character name for a provided char id
     Arguments:
@@ -821,6 +835,10 @@ def get_character_name(char_id : str ) -> str:
     Returns :
         str                    : character name, will return -1 if not found
     '''
+    #see if the value is present in redis cache
+    #r = character_name_cache_client.get(char_id)
+    #if r is None:
+        #if not present, retrieve => set in redis => return
     r = "-1"
     GET_CHARACTER_NAME = """ SELECT  character_name FROM all_characters WHERE character_id = '{}' ;"""
     with connect_to_database(1) as conn :
@@ -830,13 +848,15 @@ def get_character_name(char_id : str ) -> str:
             #print("Query executed successfully")
             if len(query_results)>0:
                 r = query_results[0]["character_name"]
+                #set the value in the cache
+                #state = set_value_in_cache(character_name_cache_client, char_id, r)
         except Exception as e:
             #print(query)
             print("Error in executing the query for get_character_name : ",e)
-    
     return r
 
-def get_user_ID(api_key : str ) -> str:
+@cached(cache = TTLCache(maxsize = 128, ttl = 600))
+def get_user_ID(api_key : str) -> str:
     '''
     Function to retrieve the user id for a provided api key
     Arguments:
@@ -844,18 +864,22 @@ def get_user_ID(api_key : str ) -> str:
     Returns :
         str                    : user id, will return -1 if not found
     '''
-    r = "-1"
-    RETRIEVE_USERID = """ SELECT user_id FROM api_map WHERE api_key = '{}'; """
-    with connect_to_database(1) as conn :
-        try:
-            query = RETRIEVE_USERID.format(api_key)
-            query_results = execute_and_return_results(query,conn)
-            #print("Query executed successfully")
-            if len(query_results)>0:
-                r = query_results[0]["user_id"]
-        except Exception as e:
-            #print(query)
-            print("Error in executing the query for get_user_ID : ",e)
+    r = user_id_cache_client.get(api_key)
+    if r is None:
+        r = "-1"
+        RETRIEVE_USERID = """ SELECT user_id FROM api_map WHERE api_key = '{}'; """
+        with connect_to_database(1) as conn :
+            try:
+                query = RETRIEVE_USERID.format(api_key)
+                query_results = execute_and_return_results(query,conn)
+                #print("Query executed successfully")
+                if len(query_results)>0:
+                    r = query_results[0]["user_id"]
+                    #set the value in the cache
+                    state = set_value_in_cache(user_id_cache_client, api_key, r)
+            except Exception as e:
+                #print(query)
+                print("Error in executing the query for get_user_ID : ",e)
     
     return r
 
@@ -932,7 +956,8 @@ def get_chat_history(char_id : str, user_id : str, session_id : str = "-1",from_
             print("Error in executing the query for get_chat_history : ",e)
     return r
 
-def get_backstory(char_id : str ) -> str:
+#@cached(cache = TTLCache(maxsize = 128, ttl = 120))
+def get_backstory(char_id : str) -> str:
     '''
     Function to retrieve character's backstory
     Arguments:
@@ -940,6 +965,9 @@ def get_backstory(char_id : str ) -> str:
     Returns :
         str : will return the character's backstory as a string , if not found will return -1
     '''
+    #see if the value is present in redis cache
+    #r = character_backstory_cache_client.get(char_id)
+    #if r is None:
     r = "-1"
     GET_CHARACTER_BACKSTORY = """ SELECT backstory FROM character_metadata WHERE character_id = '{}' AND version=0;"""
     with connect_to_database(1) as conn :
@@ -949,10 +977,11 @@ def get_backstory(char_id : str ) -> str:
             #print("Query executed successfully")
             if len(query_results)>0:
                 r = query_results[0]["backstory"]
+                #set the value in the cache
+                #state = set_value_in_cache(character_backstory_cache_client, char_id, r)
         except Exception as e:
             #print(query)
             print("Error in executing the query for get_backstory : ",e)
-    
     return r
 
 def delete_new_user(email : str)->str:
@@ -1051,15 +1080,18 @@ def get_username_from_apiKey(apiKey : str)-> str :
             print("Error in executing the query for get_username_from_apiKey : ",e)
     return r
 
+#@cached(cache = TTLCache(maxsize = 128, ttl = 120))
 def get_voice_for_character(charID : str)-> str :
     '''
     Function to retrieve the voice for the provided charID
     Arguments:
-        charID : the character id 
+        charID : the character id
     Returns :
         str : the voice of the character
         by default will return -1 (in case of any exception)
     '''
+    #r = character_voice_cache_client.get(charID)
+    #if r is None:
     GET_CHARACTER_VOICE = """ SELECT voice_type FROM all_characters WHERE character_id = '{}';"""
     r = "-1"
     with connect_to_database(1) as conn :
@@ -1068,12 +1100,14 @@ def get_voice_for_character(charID : str)-> str :
             query_results = execute_and_return_results(query,conn)
             if len(query_results)>0:
                 r = query_results[0]["voice_type"]
+                #state = set_value_in_cache(character_voice_cache_client, charID, r)
         except Exception as e:
             #print(query)
             print("Error in executing the query for get_voice_for_character : ",e)
     return r
 
-def get_character_actions(charID : str ) -> list :
+@cached(cache = TTLCache(maxsize = 128, ttl = 60))
+def get_character_actions(charID : str) -> list :
     '''
     Function to retrieve the available actions for a specific character
     Arguments:
