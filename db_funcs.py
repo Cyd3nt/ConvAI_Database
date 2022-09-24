@@ -8,7 +8,7 @@ from datetime import datetime
 from .logging import log_failed_transaction
 from main.global_resources.caching_resources.conv_local_cache import conv_local_cache
 from ConvAI_Database.db_utilities import connect_to_database, execute_and_return_results
-from main.global_resources.caching_resources.conv_cache import connect_to_redis_cache, set_value_in_cache
+from main.global_resources.caching_resources.conv_redis_cache import conv_redis_cache
 
 remove_special_character01 = lambda a : a.replace("'","''")
 remove_multi_new_line_characters = lambda a : re.sub(r'(\n\s*)+\n', '\n\n', a)
@@ -22,11 +22,14 @@ user_id_cache             = conv_local_cache(256)
 word_list_cache           = conv_local_cache(256)
 api_key_cache             = conv_local_cache(256)
 
-#character_name_cache_client = connect_to_redis_cache(2)
-#character_backstory_cache_client = connect_to_redis_cache(3)
-#user_id_cache_client = connect_to_redis_cache(4)
-#api_key_cache_client = connect_to_redis_cache(5)
-#character_voice_cache_client = connect_to_redis_cache(6)
+#redis cache
+character_name_cache_redisclient         = conv_redis_cache(2)
+character_backstory_cache_redisclient    = conv_redis_cache(3)
+character_voice_cache_redisclient        = conv_redis_cache(6)
+character_action_cache_redisclient       = conv_redis_cache(7)
+user_id_cache_redisclient                = conv_redis_cache(4)
+word_list_cache_redisclient              = conv_redis_cache(8)
+api_key_cache_redisclient                = conv_redis_cache(5)
 
 def register_user(user_id : str, username : str, email : str, company_name : str, company_role : str) -> int:
     '''
@@ -82,6 +85,7 @@ def register_api_key(user_id : str, email : str, api_key : str ) -> int:
             cursor_obj.close()
             #print("Query executed successfully")
             r = 0
+
         except Exception as e:
             #print(query)
             print("Error in executing the query for register_api_key : ",e)
@@ -199,7 +203,11 @@ def check_apiKey_existence(api_key : str, transaction_id : str = 'default' ) -> 
     Returns :
         int     : returns 0 in-case the api_key is found in the database else will return -1
     '''
-    r = api_key_cache.get(api_key)
+    r = api_key_cache.get(api_key)  # local cache 
+    
+    if r is None:
+        r = api_key_cache_redisclient.get(api_key) #redis cache
+    
     if r is None:
         r = -1
         CHECK_API_KEY_EXISTENCE = """ SELECT * FROM api_map WHERE api_key = '{}';"""
@@ -211,6 +219,8 @@ def check_apiKey_existence(api_key : str, transaction_id : str = 'default' ) -> 
                 if len(query_results) > 0:
                     r = 0
                     api_key_cache.add(api_key, r)
+                    api_key_cache_redisclient.add(api_key, r)
+
             except Exception as e:
                 #print(query)
                 dbLoggingProcess = Process(
@@ -468,6 +478,10 @@ def insert_new_character(
                 character_voice_cache.add(char_id, voice_type)
                 character_actions_cache.add(char_id, actions_list)
 
+                character_name_cache_redisclient.add(char_id, character_name)
+                character_voice_cache_redisclient.add(char_id, voice_type)
+                #character actions part yet to be sorted out
+
         except Exception as e:
             #print(query)
             print("Error in executing the query for insert_new_character : ",e)
@@ -576,6 +590,7 @@ def update_character_metadata(char_id : str, backstory : str, doc_store_file_lin
             #print("Query executed successfully")
             r = 0
             character_backstory_cache.update(char_id, backstory)
+            character_backstory_cache_redisclient.update(char_id, backstory)
 
         except Exception as e:
             #print(query)
@@ -649,7 +664,11 @@ def update_character_details(updated_data_dict : dict ) -> int :
             character_name_cache.update(updated_data_dict['character_id'],updated_data_dict['character_name'])
             character_voice_cache.update(updated_data_dict['character_id'], updated_data_dict['voice_type'])
             character_actions_cache.update(updated_data_dict['character_id'],action_list)
-        
+
+            character_name_cache_redisclient.update(updated_data_dict['character_id'],updated_data_dict['character_name'])
+            character_voice_cache_redisclient.update(updated_data_dict['character_id'], updated_data_dict['voice_type'])
+            #character actions yet to be implemented
+
         except Exception as e:
             #print(query)
             print("Error in executing the query for update_character_details : ",e)
@@ -689,6 +708,7 @@ def add_new_word( api_key : str, word : str, pronunciation : str, status : str, 
             else:
                 word_list.append(word)
                 word_list_cache.update(api_key, word_list)
+                #redis cache implementation yet to be figured out
             
         except Exception as e:
             #print(query)
@@ -763,6 +783,7 @@ def fetch_word_list(api_key : str, transaction_id : str = 'default' ) -> list:
                 elif len(query_results) == 0:
                     r = []
                     word_list_cache.add(api_key, r)
+                #redis cache implementation yet to be figured out
 
             except Exception as e:
                 dbLoggingProcess = Process(
