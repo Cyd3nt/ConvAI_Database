@@ -912,7 +912,7 @@ def get_chat_history(char_id : str, user_id : str, session_id : str = "-1",from_
     Returns :
         list : list of dictionaries, consisiting details for the chat logs. Will return empty list if none found.
     '''
-    r = chat_history_cache_redisclient.get_list(session_id)
+    r = chat_history_cache_redisclient.get_chat_list(session_id)
     print("redis caching : ",r)
     if r is None:
         r = []
@@ -971,7 +971,7 @@ def update_chat_history_to_cache(char_id : str, user_id : str, session_id : str 
             query_results = execute_and_return_results(query,conn)
             if len(query_results)>0:
                 r = query_results
-                chat_history_cache_redisclient.set_list(session_id, r)
+                chat_history_cache_redisclient.set_chat_list(session_id, r)
         except Exception as e:
             print("Error in executing the query for update_chat_history : ",e)
     return r
