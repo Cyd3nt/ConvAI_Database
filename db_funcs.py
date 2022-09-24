@@ -30,6 +30,7 @@ character_action_cache_redisclient       = conv_redis_cache(7)
 user_id_cache_redisclient                = conv_redis_cache(4)
 word_list_cache_redisclient              = conv_redis_cache(8)
 api_key_cache_redisclient                = conv_redis_cache(5)
+chat_history_cache_redisclient           = conv_redis_cache(9)
 
 def register_user(user_id : str, username : str, email : str, company_name : str, company_role : str) -> int:
     '''
@@ -889,8 +890,9 @@ def write_to_chat_history(char_id : str, user_id : str, user_query: str, bot_tex
             cursor_obj = conn.cursor()
             cursor_obj.execute(query)
             cursor_obj.close()
-            #print("Query executed successfully")
             r = 0
+            #updating the cache
+            update_chat_history_to_cache(char_id, user_id, session_id)
         except Exception as e:
             #print(query)
             print("Error in executing the query for write_to_chat_history : ",e)
@@ -909,7 +911,45 @@ def get_chat_history(char_id : str, user_id : str, session_id : str = "-1",from_
     Returns :
         list : list of dictionaries, consisiting details for the chat logs. Will return empty list if none found.
     '''
-    r = []
+    r = chat_history_cache_redisclient.get_list(session_id)
+    if r is None or int(r)==-1:
+        r = []
+
+        GET_CHAT_HISTORY    = """ SELECT * FROM all_interactions WHERE user_id='{}' AND character_id='{}'  """
+        GET_CHAT_HISTORY_02 = """ AND (timestamp BETWEEN '{}' AND '{}')"""
+        GET_CHAT_HISTORY_03 = """ AND session_id='{}' """
+        
+        with connect_to_database(1) as conn :
+            try:
+                query = GET_CHAT_HISTORY.format(user_id, char_id)
+        
+                if to_time!=-1 and to_time!="-1":
+                    query = query + GET_CHAT_HISTORY_02.format(to_time,from_time) 
+        
+                if session_id!=-1 and session_id!="-1":
+                    query = query + GET_CHAT_HISTORY_03.format(session_id)
+
+                query = query + ";"
+                query_results = execute_and_return_results(query,conn)
+                #print("Query executed successfully")
+                if len(query_results)>0:
+                    r = query_results
+            except Exception as e:
+                #print(query)
+                print("Error in executing the query for get_chat_history : ",e)
+    return r
+
+def update_chat_history_to_cache(char_id : str, user_id : str, session_id : str = "-1",from_time : str = "-1", to_time : str = "-1" ):
+    '''
+    Function to retrieve chat history and store it in the redis cache
+    Arguments:
+        char_id         : character's id
+        user_id         : user's id
+        from_time       : start time
+        to_time         : end time
+        session_id      : chat's session id
+    '''
+    r = [-1]
 
     GET_CHAT_HISTORY    = """ SELECT * FROM all_interactions WHERE user_id='{}' AND character_id='{}'  """
     GET_CHAT_HISTORY_02 = """ AND (timestamp BETWEEN '{}' AND '{}')"""
@@ -927,12 +967,11 @@ def get_chat_history(char_id : str, user_id : str, session_id : str = "-1",from_
 
             query = query + ";"
             query_results = execute_and_return_results(query,conn)
-            #print("Query executed successfully")
             if len(query_results)>0:
                 r = query_results
+                chat_history_cache_redisclient.set_list(session_id, r)
         except Exception as e:
-            #print(query)
-            print("Error in executing the query for get_chat_history : ",e)
+            print("Error in executing the query for update_chat_history : ",e)
     return r
 
 def get_backstory(char_id : str) -> str:
