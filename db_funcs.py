@@ -913,7 +913,8 @@ def get_chat_history(char_id : str, user_id : str, session_id : str = "-1",from_
         list : list of dictionaries, consisiting details for the chat logs. Will return empty list if none found.
     '''
     r = chat_history_cache_redisclient.get_list(session_id)
-    if r is None or isinstance(r[0],str):
+    print("redis caching : ",r)
+    if r is None:
         r = []
 
         GET_CHAT_HISTORY    = """ SELECT * FROM all_interactions WHERE user_id='{}' AND character_id='{}'  """
