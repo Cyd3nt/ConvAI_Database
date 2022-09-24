@@ -203,8 +203,7 @@ def check_apiKey_existence(api_key : str, transaction_id : str = 'default' ) -> 
     Returns :
         int     : returns 0 in-case the api_key is found in the database else will return -1
     '''
-    r = api_key_cache.get(api_key)  # local cache 
-    
+    r = api_key_cache.get(api_key)  # local cache
     if r is None:
         r = api_key_cache_redisclient.get(api_key) #redis cache
         if r is None:
