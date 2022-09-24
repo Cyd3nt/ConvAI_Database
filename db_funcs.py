@@ -207,37 +207,36 @@ def check_apiKey_existence(api_key : str, transaction_id : str = 'default' ) -> 
     
     if r is None:
         r = api_key_cache_redisclient.get(api_key) #redis cache
-    
-    if r is None:
-        r = -1
-        CHECK_API_KEY_EXISTENCE = """ SELECT * FROM api_map WHERE api_key = '{}';"""
-        with connect_to_database(1) as conn:
-            try :
-                query = CHECK_API_KEY_EXISTENCE.format(api_key)
-                query_results = execute_and_return_results(query, conn)
-                
-                if len(query_results) > 0:
-                    r = 0
-                    api_key_cache.add(api_key, r)
-                    api_key_cache_redisclient.add(api_key, r)
+        if r is None:
+            r = -1
+            CHECK_API_KEY_EXISTENCE = """ SELECT * FROM api_map WHERE api_key = '{}';"""
+            with connect_to_database(1) as conn:
+                try :
+                    query = CHECK_API_KEY_EXISTENCE.format(api_key)
+                    query_results = execute_and_return_results(query, conn)
+                    
+                    if len(query_results) > 0:
+                        r = 0
+                        api_key_cache.add(api_key, r)
+                        api_key_cache_redisclient.add(api_key, r)
 
-            except Exception as e:
-                #print(query)
-                dbLoggingProcess = Process(
-                    target = log_failed_transaction,
-                    args = (
-                        transaction_id,
-                        "check_apiKey_existence",
-                        str(datetime.now()),
-                        json.dumps({
-                            "api_key": api_key,
-                        }),
-                        str(e),
-                        ""
+                except Exception as e:
+                    dbLoggingProcess = Process(
+                        target = log_failed_transaction,
+                        args = (
+                            transaction_id,
+                            "check_apiKey_existence",
+                            str(datetime.now()),
+                            json.dumps({
+                                "api_key": api_key,
+                            }),
+                            str(e),
+                            ""
+                        )
                     )
-                )
-                dbLoggingProcess.start()
-                # print("Error in executing the query for check_apiKey_existence : ",e)
+                    dbLoggingProcess.start()
+        else:
+            api_key_cache.add(api_key, r) #setting value in the local cache
     return r
 
 def get_all_personal_characters(user_id : str) -> list:
@@ -480,7 +479,7 @@ def insert_new_character(
 
                 character_name_cache_redisclient.add(char_id, character_name)
                 character_voice_cache_redisclient.add(char_id, voice_type)
-                #character actions part yet to be sorted out
+                character_action_cache_redisclient.set_list(char_id, actions_list)
 
         except Exception as e:
             #print(query)
@@ -667,7 +666,7 @@ def update_character_details(updated_data_dict : dict ) -> int :
 
             character_name_cache_redisclient.update(updated_data_dict['character_id'],updated_data_dict['character_name'])
             character_voice_cache_redisclient.update(updated_data_dict['character_id'], updated_data_dict['voice_type'])
-            #character actions yet to be implemented
+            character_action_cache_redisclient.set_list(updated_data_dict['character_id'],action_list)
 
         except Exception as e:
             #print(query)
@@ -708,7 +707,7 @@ def add_new_word( api_key : str, word : str, pronunciation : str, status : str, 
             else:
                 word_list.append(word)
                 word_list_cache.update(api_key, word_list)
-                #redis cache implementation yet to be figured out
+                word_list_cache_redisclient.set_list(api_key, word_list)
             
         except Exception as e:
             #print(query)
@@ -769,39 +768,43 @@ def fetch_word_list(api_key : str, transaction_id : str = 'default' ) -> list:
     '''
     r = word_list_cache.get(api_key)
     if r is None:
-        GET_WORD_LIST_FOR_API_KEY = """SELECT word FROM word_finetuning WHERE api_key = '{}' ;"""
-        r = [-1]
-        with connect_to_database(2) as conn :
-            try:
-                query = GET_WORD_LIST_FOR_API_KEY.format(api_key)
-                query_results = execute_and_return_results(query,conn)
-                if len(query_results)>0:
-                    r = []
-                    for i in query_results:
-                        r.append(i["word"])
-                    word_list_cache.add(api_key, r)
-                elif len(query_results) == 0:
-                    r = []
-                    word_list_cache.add(api_key, r)
-                #redis cache implementation yet to be figured out
+        r = word_list_cache_redisclient.get_list(api_key)
+        if r is None:
+            GET_WORD_LIST_FOR_API_KEY = """SELECT word FROM word_finetuning WHERE api_key = '{}' ;"""
+            r = [-1]
+            with connect_to_database(2) as conn :
+                try:
+                    query = GET_WORD_LIST_FOR_API_KEY.format(api_key)
+                    query_results = execute_and_return_results(query,conn)
+                    if len(query_results)>0:
+                        r = []
+                        for i in query_results:
+                            r.append(i["word"])
+                        word_list_cache.add(api_key, r)
+                        word_list_cache_redisclient.set_list(api_key, r)
+                    elif len(query_results) == 0:
+                        r = []
+                        word_list_cache.add(api_key, r)
+                        word_list_cache_redisclient.set_list(api_key, r)
 
-            except Exception as e:
-                dbLoggingProcess = Process(
-                    target = log_failed_transaction,
-                    args = (
-                        transaction_id,
-                        "fetch_word_list",
-                        str(datetime.now()),
-                        json.dumps({
-                            "api_key": api_key,
-                        }),
-                        str(e),
-                        ""
+                except Exception as e:
+                    dbLoggingProcess = Process(
+                        target = log_failed_transaction,
+                        args = (
+                            transaction_id,
+                            "fetch_word_list",
+                            str(datetime.now()),
+                            json.dumps({
+                                "api_key": api_key,
+                            }),
+                            str(e),
+                            ""
+                        )
                     )
-                )
-                dbLoggingProcess.start()
-                # print("Error in executing the query for fetch_word_list : ",e)
-        
+                    dbLoggingProcess.start()
+        else:
+            word_list_cache.add(api_key, r)
+            
     return r
 
 def get_character_name(char_id : str) -> str:
@@ -814,17 +817,22 @@ def get_character_name(char_id : str) -> str:
     '''
     r = character_name_cache.get(char_id)
     if r is None:
-        r = "-1"
-        GET_CHARACTER_NAME = """ SELECT  character_name FROM all_characters WHERE character_id = '{}' ;"""
-        with connect_to_database(1) as conn :
-            try:
-                query = GET_CHARACTER_NAME.format(char_id)
-                query_results = execute_and_return_results(query,conn)
-                if len(query_results)>0:
-                    r = query_results[0]["character_name"]
-                    character_name_cache.add(char_id, r)
-            except Exception as e:
-                print("Error in executing the query for get_character_name : ",e)
+        r = character_name_cache_redisclient.get(char_id)
+        if r is None:
+            r = "-1"
+            GET_CHARACTER_NAME = """ SELECT  character_name FROM all_characters WHERE character_id = '{}' ;"""
+            with connect_to_database(1) as conn :
+                try:
+                    query = GET_CHARACTER_NAME.format(char_id)
+                    query_results = execute_and_return_results(query,conn)
+                    if len(query_results)>0:
+                        r = query_results[0]["character_name"]
+                        character_name_cache.add(char_id, r)
+                        character_name_cache_redisclient.add(char_id, r)
+                except Exception as e:
+                    print("Error in executing the query for get_character_name : ",e)
+        else:
+            character_name_cache.add(char_id, r)
     return r
 
 def get_user_ID(api_key : str) -> str:
@@ -837,17 +845,22 @@ def get_user_ID(api_key : str) -> str:
     '''
     r = user_id_cache.get(api_key)
     if r is None:
-        r = "-1"
-        RETRIEVE_USERID = """ SELECT user_id FROM api_map WHERE api_key = '{}'; """
-        with connect_to_database(1) as conn :
-            try:
-                query = RETRIEVE_USERID.format(api_key)
-                query_results = execute_and_return_results(query,conn)
-                if len(query_results)>0:
-                    r = query_results[0]["user_id"]
-                    user_id_cache.add(api_key,r)
-            except Exception as e:
-                print("Error in executing the query for get_user_ID : ",e)
+        r = user_id_cache_redisclient.get(api_key)
+        if r is None:
+            r = "-1"
+            RETRIEVE_USERID = """ SELECT user_id FROM api_map WHERE api_key = '{}'; """
+            with connect_to_database(1) as conn :
+                try:
+                    query = RETRIEVE_USERID.format(api_key)
+                    query_results = execute_and_return_results(query,conn)
+                    if len(query_results)>0:
+                        r = query_results[0]["user_id"]
+                        user_id_cache.add(api_key,r)
+                        user_id_cache_redisclient.add(api_key,r)
+                except Exception as e:
+                    print("Error in executing the query for get_user_ID : ",e)
+        else:
+            user_id_cache.add(api_key,r)
     return r
 
 def write_to_chat_history(char_id : str, user_id : str, user_query: str, bot_text: str, session_id : str) -> int:
@@ -933,17 +946,22 @@ def get_backstory(char_id : str) -> str:
     '''
     r = character_backstory_cache.get(char_id)
     if r is None:
-        r = "-1"
-        GET_CHARACTER_BACKSTORY = """ SELECT backstory FROM character_metadata WHERE character_id = '{}' AND version=0;"""
-        with connect_to_database(1) as conn :
-            try:
-                query = GET_CHARACTER_BACKSTORY.format(char_id)
-                query_results = execute_and_return_results(query,conn)
-                if len(query_results)>0:
-                    r = query_results[0]["backstory"]
-                    character_backstory_cache.add(char_id,r)
-            except Exception as e:
-                print("Error in executing the query for get_backstory : ",e)
+        r = character_backstory_cache_redisclient.get(char_id)
+        if r is None:
+            r = "-1"
+            GET_CHARACTER_BACKSTORY = """ SELECT backstory FROM character_metadata WHERE character_id = '{}' AND version=0;"""
+            with connect_to_database(1) as conn :
+                try:
+                    query = GET_CHARACTER_BACKSTORY.format(char_id)
+                    query_results = execute_and_return_results(query,conn)
+                    if len(query_results)>0:
+                        r = query_results[0]["backstory"]
+                        character_backstory_cache.add(char_id,r)
+                        character_backstory_cache_redisclient.add(char_id,r)
+                except Exception as e:
+                    print("Error in executing the query for get_backstory : ",e)
+        else:
+            character_backstory_cache.add(char_id,r)
     return r
 
 def delete_new_user(email : str)->str:
@@ -1053,17 +1071,22 @@ def get_voice_for_character(charID : str)-> str :
     '''
     r = character_voice_cache.get(charID)
     if r is None:
-        GET_CHARACTER_VOICE = """ SELECT voice_type FROM all_characters WHERE character_id = '{}';"""
-        r = "-1"
-        with connect_to_database(1) as conn :
-            try:
-                query = GET_CHARACTER_VOICE.format(charID)
-                query_results = execute_and_return_results(query,conn)
-                if len(query_results)>0:
-                    r = query_results[0]["voice_type"]
-                    character_voice_cache.add(charID, r)
-            except Exception as e:
-                print("Error in executing the query for get_voice_for_character : ",e)
+        r  = character_voice_cache_redisclient.get(charID)
+        if r is None:
+            GET_CHARACTER_VOICE = """ SELECT voice_type FROM all_characters WHERE character_id = '{}';"""
+            r = "-1"
+            with connect_to_database(1) as conn :
+                try:
+                    query = GET_CHARACTER_VOICE.format(charID)
+                    query_results = execute_and_return_results(query,conn)
+                    if len(query_results)>0:
+                        r = query_results[0]["voice_type"]
+                        character_voice_cache.add(charID, r)
+                        character_voice_cache_redisclient.add(charID, r)
+                except Exception as e:
+                    print("Error in executing the query for get_voice_for_character : ",e)
+        else:
+            character_voice_cache.add(charID, r)
     return r
 
 def get_character_actions(charID : str) -> list :
@@ -1076,17 +1099,22 @@ def get_character_actions(charID : str) -> list :
     '''
     r = character_actions_cache.get(charID)
     if r is None:
-        GET_CHARACTER_ACTIONS = """ SELECT character_actions FROM all_characters WHERE character_id = '{}';"""
-        r = []
-        with connect_to_database(1) as conn :
-            try:
-                query = GET_CHARACTER_ACTIONS.format(charID)
-                query_results = execute_and_return_results(query,conn)
-                if len(query_results)>0:
-                    r = query_results[0]["character_actions"]
-                    character_actions_cache.add(charID,r)
-            except Exception as e:
-                print("Error in executing the query for get_character_actions : ",e)
+        r = character_action_cache_redisclient.get_list(charID)
+        if r is None:
+            GET_CHARACTER_ACTIONS = """ SELECT character_actions FROM all_characters WHERE character_id = '{}';"""
+            r = []
+            with connect_to_database(1) as conn :
+                try:
+                    query = GET_CHARACTER_ACTIONS.format(charID)
+                    query_results = execute_and_return_results(query,conn)
+                    if len(query_results)>0:
+                        r = query_results[0]["character_actions"]
+                        character_actions_cache.add(charID,r)
+                        character_action_cache_redisclient.set_list(charID,r)
+                except Exception as e:
+                    print("Error in executing the query for get_character_actions : ",e)
+        else:
+            character_actions_cache.add(charID,r)
     return r
 
 def insert_interaction_prompt_data( prompt : str, temperature : float, max_tokens : int, top_p : float, frequency_penalty : float, presence_penalty : float, stop : str, response : str , model : str = 'NULL', engine : str = 'NULL' ) -> int :
