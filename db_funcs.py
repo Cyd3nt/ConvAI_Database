@@ -206,7 +206,7 @@ def check_apiKey_existence(api_key : str, transaction_id : str = 'default' ) -> 
     '''
     r = api_key_cache.get(api_key)  # local cache
     if r is None:
-        r = int(api_key_cache_redisclient.get(api_key)) #redis cache
+        r = api_key_cache_redisclient.get(api_key) #redis cache
         if r is None:
             r = -1
             CHECK_API_KEY_EXISTENCE = """ SELECT * FROM api_map WHERE api_key = '{}';"""
