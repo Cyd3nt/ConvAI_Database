@@ -236,6 +236,7 @@ def check_apiKey_existence(api_key : str, transaction_id : str = 'default' ) -> 
                     )
                     dbLoggingProcess.start()
         else:
+            r = int(r)
             api_key_cache.add(api_key, r) #setting value in the local cache
     return r
 
