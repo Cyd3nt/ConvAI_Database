@@ -15,11 +15,11 @@ remove_multi_new_line_characters = lambda a : re.sub(r'(\n\s*)+\n', '\n\n', a)
 
 #local caches
 character_name_cache      = conv_local_cache(256)
-character_backstory_cache = conv_local_cache(256)
-character_voice_cache     = conv_local_cache(256)
-character_actions_cache   = conv_local_cache(256)
+#character_backstory_cache = conv_local_cache(256)
+#character_voice_cache     = conv_local_cache(256)
+#character_actions_cache   = conv_local_cache(256)
 user_id_cache             = conv_local_cache(256)
-word_list_cache           = conv_local_cache(256)
+#word_list_cache           = conv_local_cache(256)
 api_key_cache             = conv_local_cache(256)
 
 #redis cache
@@ -475,8 +475,8 @@ def insert_new_character(
                 char_id = query_results[0]["character_id"]
                 
                 character_name_cache.add(char_id, character_name)
-                character_voice_cache.add(char_id, voice_type)
-                character_actions_cache.add(char_id, actions_list)
+                #character_voice_cache.add(char_id, voice_type)
+                #character_actions_cache.add(char_id, actions_list)
 
                 character_name_cache_redisclient.add(char_id, character_name)
                 character_voice_cache_redisclient.add(char_id, voice_type)
@@ -589,7 +589,7 @@ def update_character_metadata(char_id : str, backstory : str, doc_store_file_lin
             cursor_obj.close()
             #print("Query executed successfully")
             r = 0
-            character_backstory_cache.update(char_id, backstory)
+            #character_backstory_cache.update(char_id, backstory)
             character_backstory_cache_redisclient.update(char_id, backstory)
 
         except Exception as e:
@@ -662,8 +662,8 @@ def update_character_details(updated_data_dict : dict ) -> int :
             r =0
 
             character_name_cache.update(updated_data_dict['character_id'],updated_data_dict['character_name'])
-            character_voice_cache.update(updated_data_dict['character_id'], updated_data_dict['voice_type'])
-            character_actions_cache.update(updated_data_dict['character_id'],action_list)
+            #character_voice_cache.update(updated_data_dict['character_id'], updated_data_dict['voice_type'])
+            #character_actions_cache.update(updated_data_dict['character_id'],action_list)
 
             character_name_cache_redisclient.update(updated_data_dict['character_id'],updated_data_dict['character_name'])
             character_voice_cache_redisclient.update(updated_data_dict['character_id'], updated_data_dict['voice_type'])
@@ -702,13 +702,13 @@ def add_new_word( api_key : str, word : str, pronunciation : str, status : str, 
             cursor_obj.close()
             r = 0
 
-            word_list = word_list_cache.get(api_key)
-            if word_list is None:
-                _ = fetch_word_list(api_key)
-            else:
-                word_list.append(word)
-                word_list_cache.update(api_key, word_list)
-                word_list_cache_redisclient.set_list(api_key, word_list)
+            #word_list = word_list_cache.get(api_key)
+            #if word_list is None:
+            word_list = fetch_word_list(api_key)
+            #else:
+            #word_list.append(word)
+            #word_list_cache.update(api_key, word_list)
+            word_list_cache_redisclient.set_list(api_key, word_list)
             
         except Exception as e:
             #print(query)
@@ -767,44 +767,44 @@ def fetch_word_list(api_key : str, transaction_id : str = 'default' ) -> list:
     Returns :
         list : list of boosted words, if none found, would return empty list
     '''
-    r = word_list_cache.get(api_key)
+    #r = word_list_cache.get(api_key)
+    #if r is None:
+    r = word_list_cache_redisclient.get_list(api_key)
     if r is None:
-        r = word_list_cache_redisclient.get_list(api_key)
-        if r is None:
-            GET_WORD_LIST_FOR_API_KEY = """SELECT word FROM word_finetuning WHERE api_key = '{}' ;"""
-            r = [-1]
-            with connect_to_database(2) as conn :
-                try:
-                    query = GET_WORD_LIST_FOR_API_KEY.format(api_key)
-                    query_results = execute_and_return_results(query,conn)
-                    if len(query_results)>0:
-                        r = []
-                        for i in query_results:
-                            r.append(i["word"])
-                        word_list_cache.add(api_key, r)
-                        word_list_cache_redisclient.set_list(api_key, r)
-                    elif len(query_results) == 0:
-                        r = []
-                        word_list_cache.add(api_key, r)
-                        word_list_cache_redisclient.set_list(api_key, r)
+        GET_WORD_LIST_FOR_API_KEY = """SELECT word FROM word_finetuning WHERE api_key = '{}' ;"""
+        r = [-1]
+        with connect_to_database(2) as conn :
+            try:
+                query = GET_WORD_LIST_FOR_API_KEY.format(api_key)
+                query_results = execute_and_return_results(query,conn)
+                if len(query_results)>0:
+                    r = []
+                    for i in query_results:
+                        r.append(i["word"])
+                    #word_list_cache.add(api_key, r)
+                    word_list_cache_redisclient.set_list(api_key, r)
+                elif len(query_results) == 0:
+                    r = []
+                    #word_list_cache.add(api_key, r)
+                    word_list_cache_redisclient.set_list(api_key, r)
 
-                except Exception as e:
-                    dbLoggingProcess = Process(
-                        target = log_failed_transaction,
-                        args = (
-                            transaction_id,
-                            "fetch_word_list",
-                            str(datetime.now()),
-                            json.dumps({
-                                "api_key": api_key,
-                            }),
-                            str(e),
-                            ""
-                        )
+            except Exception as e:
+                dbLoggingProcess = Process(
+                    target = log_failed_transaction,
+                    args = (
+                        transaction_id,
+                        "fetch_word_list",
+                        str(datetime.now()),
+                        json.dumps({
+                            "api_key": api_key,
+                        }),
+                        str(e),
+                        ""
                     )
-                    dbLoggingProcess.start()
-        else:
-            word_list_cache.add(api_key, r)
+                )
+                dbLoggingProcess.start()
+    #    else:
+    #        word_list_cache.add(api_key, r)
             
     return r
 
@@ -963,24 +963,24 @@ def get_backstory(char_id : str) -> str:
     Returns :
         str : will return the character's backstory as a string , if not found will return -1
     '''
-    r = character_backstory_cache.get(char_id)
+    #r = character_backstory_cache.get(char_id)
+    #if r is None:
+    r = character_backstory_cache_redisclient.get(char_id)
     if r is None:
-        r = character_backstory_cache_redisclient.get(char_id)
-        if r is None:
-            r = "-1"
-            GET_CHARACTER_BACKSTORY = """ SELECT backstory FROM character_metadata WHERE character_id = '{}' AND version=0;"""
-            with connect_to_database(1) as conn :
-                try:
-                    query = GET_CHARACTER_BACKSTORY.format(char_id)
-                    query_results = execute_and_return_results(query,conn)
-                    if len(query_results)>0:
-                        r = query_results[0]["backstory"]
-                        character_backstory_cache.add(char_id,r)
-                        character_backstory_cache_redisclient.add(char_id,r)
-                except Exception as e:
-                    print("Error in executing the query for get_backstory : ",e)
-        else:
-            character_backstory_cache.add(char_id,r)
+        r = "-1"
+        GET_CHARACTER_BACKSTORY = """ SELECT backstory FROM character_metadata WHERE character_id = '{}' AND version=0;"""
+        with connect_to_database(1) as conn :
+            try:
+                query = GET_CHARACTER_BACKSTORY.format(char_id)
+                query_results = execute_and_return_results(query,conn)
+                if len(query_results)>0:
+                    r = query_results[0]["backstory"]
+                    #character_backstory_cache.add(char_id,r)
+                    character_backstory_cache_redisclient.add(char_id,r)
+            except Exception as e:
+                print("Error in executing the query for get_backstory : ",e)
+    #else:
+    #    character_backstory_cache.add(char_id,r)
     return r
 
 def delete_new_user(email : str)->str:
@@ -1088,24 +1088,24 @@ def get_voice_for_character(charID : str)-> str :
         str : the voice of the character
         by default will return -1 (in case of any exception)
     '''
-    r = character_voice_cache.get(charID)
+    #r = character_voice_cache.get(charID)
+    #if r is None:
+    r  = character_voice_cache_redisclient.get(charID)
     if r is None:
-        r  = character_voice_cache_redisclient.get(charID)
-        if r is None:
-            GET_CHARACTER_VOICE = """ SELECT voice_type FROM all_characters WHERE character_id = '{}';"""
-            r = "-1"
-            with connect_to_database(1) as conn :
-                try:
-                    query = GET_CHARACTER_VOICE.format(charID)
-                    query_results = execute_and_return_results(query,conn)
-                    if len(query_results)>0:
-                        r = query_results[0]["voice_type"]
-                        character_voice_cache.add(charID, r)
-                        character_voice_cache_redisclient.add(charID, r)
-                except Exception as e:
-                    print("Error in executing the query for get_voice_for_character : ",e)
-        else:
-            character_voice_cache.add(charID, r)
+        GET_CHARACTER_VOICE = """ SELECT voice_type FROM all_characters WHERE character_id = '{}';"""
+        r = "-1"
+        with connect_to_database(1) as conn :
+            try:
+                query = GET_CHARACTER_VOICE.format(charID)
+                query_results = execute_and_return_results(query,conn)
+                if len(query_results)>0:
+                    r = query_results[0]["voice_type"]
+                    #character_voice_cache.add(charID, r)
+                    character_voice_cache_redisclient.add(charID, r)
+            except Exception as e:
+                print("Error in executing the query for get_voice_for_character : ",e)
+    #else:
+    #        character_voice_cache.add(charID, r)
     return r
 
 def get_character_actions(charID : str) -> list :
@@ -1116,24 +1116,24 @@ def get_character_actions(charID : str) -> list :
     Returns:
         list : list of actions available for the character. If none are present, will return empty list.
     '''
-    r = character_actions_cache.get(charID)
+    #r = character_actions_cache.get(charID)
+    #if r is None:
+    r = character_action_cache_redisclient.get_list(charID)
     if r is None:
-        r = character_action_cache_redisclient.get_list(charID)
-        if r is None:
-            GET_CHARACTER_ACTIONS = """ SELECT character_actions FROM all_characters WHERE character_id = '{}';"""
-            r = []
-            with connect_to_database(1) as conn :
-                try:
-                    query = GET_CHARACTER_ACTIONS.format(charID)
-                    query_results = execute_and_return_results(query,conn)
-                    if len(query_results)>0:
-                        r = query_results[0]["character_actions"]
-                        character_actions_cache.add(charID,r)
-                        character_action_cache_redisclient.set_list(charID,r)
-                except Exception as e:
-                    print("Error in executing the query for get_character_actions : ",e)
-        else:
-            character_actions_cache.add(charID,r)
+        GET_CHARACTER_ACTIONS = """ SELECT character_actions FROM all_characters WHERE character_id = '{}';"""
+        r = []
+        with connect_to_database(1) as conn :
+            try:
+                query = GET_CHARACTER_ACTIONS.format(charID)
+                query_results = execute_and_return_results(query,conn)
+                if len(query_results)>0:
+                    r = query_results[0]["character_actions"]
+                    #character_actions_cache.add(charID,r)
+                    character_action_cache_redisclient.set_list(charID,r)
+            except Exception as e:
+                print("Error in executing the query for get_character_actions : ",e)
+    #    else:
+    #        character_actions_cache.add(charID,r)
     return r
 
 def insert_interaction_prompt_data( prompt : str, temperature : float, max_tokens : int, top_p : float, frequency_penalty : float, presence_penalty : float, stop : str, response : str , model : str = 'NULL', engine : str = 'NULL' ) -> int :
