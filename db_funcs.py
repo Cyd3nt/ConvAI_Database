@@ -892,8 +892,18 @@ def write_to_chat_history(char_id : str, user_id : str, user_query: str, bot_tex
             cursor_obj.execute(query)
             cursor_obj.close()
             r = 0
+            
             #updating the cache
-            update_chat_history_to_cache(char_id, user_id, session_id)
+            chats = chat_history_cache_redisclient.get_chat_list(session_id)
+            if chats is not None:
+                o = {'user_query' : user_query, 'response' : bot_text }
+                chats.append(o)
+            else:
+                chats=[]
+                o = {'user_query' : user_query, 'response' : bot_text }
+                chats.append(o)
+            chat_history_cache_redisclient.set_chat_list(session_id, chats)
+            
         except Exception as e:
             #print(query)
             print("Error in executing the query for write_to_chat_history : ",e)
@@ -936,6 +946,7 @@ def get_chat_history(char_id : str, user_id : str, session_id : str = "-1",from_
                 #print("Query executed successfully")
                 if len(query_results)>0:
                     r = query_results
+                    chat_history_cache_redisclient.set_chat_list(session_id, r)
             except Exception as e:
                 #print(query)
                 print("Error in executing the query for get_chat_history : ",e)
