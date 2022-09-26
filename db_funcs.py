@@ -32,7 +32,7 @@ word_list_cache_redisclient              = conv_redis_cache(8)
 api_key_cache_redisclient                = conv_redis_cache(5)
 chat_history_cache_redisclient           = conv_redis_cache(9)
 
-def register_user(user_id : str, username : str, email : str, company_name : str, company_role : str) -> int:
+def register_user(user_id : str, username : str, email : str, company_name : str, company_role : str, transaction_id: str = "default") -> int:
     '''
     Function to register the new user in the database
     Arguments:
@@ -62,10 +62,28 @@ def register_user(user_id : str, username : str, email : str, company_name : str
             r = 0
         except Exception as e:
             #print(query)
-            print("Error in executing the query for register_user : ",e) 
+            # print("Error in executing the query for register_user : ",e)
+            dbLoggingProcess = Process(
+                target = log_failed_transaction,
+                args = (
+                    transaction_id,
+                    "register_user",
+                    str(datetime.now()),
+                    json.dumps({
+                        "user_id": user_id,
+                        "username": username,
+                        "email": email,
+                        "organisation": company_name,
+                        "user_designation": company_role,
+                    }),
+                    str(e),
+                    ""
+                )
+            )
+            dbLoggingProcess.start() 
     return r
 
-def register_api_key(user_id : str, email : str, api_key : str ) -> int:
+def register_api_key(user_id : str, email : str, api_key : str, transaction_id: str ) -> int:
     '''
     Function to register the api key for the user in the database
     Arguments:
@@ -89,7 +107,23 @@ def register_api_key(user_id : str, email : str, api_key : str ) -> int:
 
         except Exception as e:
             #print(query)
-            print("Error in executing the query for register_api_key : ",e)
+            # print("Error in executing the query for register_api_key : ",e)
+            dbLoggingProcess = Process(
+                target = log_failed_transaction,
+                args = (
+                    transaction_id,
+                    "register_api_key",
+                    str(datetime.now()),
+                    json.dumps({
+                        "user_id": user_id,
+                        "api_key": api_key,
+                        "email": email,
+                    }),
+                    str(e),
+                    ""
+                )
+            )
+            dbLoggingProcess.start()
             
     return r
 
@@ -124,7 +158,7 @@ def log_user_activity(api_key : str, service_accessed : str, source : str, user_
             
     return r
 
-def get_api_key_info(email : str ) -> str:
+def get_api_key_info(email : str, transaction_id: str ) -> str:
     '''
     Function to retrieve the user's api_key the database
     Arguments:
@@ -155,11 +189,25 @@ def get_api_key_info(email : str ) -> str:
 
         except Exception as e:
             #print(query)
-            print("Error in executing the query for get_api_key_info : ",e)
+            # print("Error in executing the query for get_api_key_info : ",e)
+            dbLoggingProcess = Process(
+                target = log_failed_transaction,
+                args = (
+                    transaction_id,
+                    "get_api_key_info",
+                    str(datetime.now()),
+                    json.dumps({
+                        "email": email,
+                    }),
+                    str(e),
+                    ""
+                )
+            )
+            dbLoggingProcess.start()
     
     return user_verification_details
 
-def user_login(email : str ) -> dict:
+def user_login(email : str, transaction_id: str = "default" ) -> dict:
     '''
     Function to retrieve the user's api_key from the database
     Arguments:
@@ -192,7 +240,21 @@ def user_login(email : str ) -> dict:
 
         except Exception as e:
             #print(query)
-            print("Error in executing the query for user_login : ",e)
+            # print("Error in executing the query for user_login : ",e)
+            dbLoggingProcess = Process(
+                target = log_failed_transaction,
+                args = (
+                    transaction_id,
+                    "user_login",
+                    str(datetime.now()),
+                    json.dumps({
+                        "email": email,
+                    }),
+                    str(e),
+                    ""
+                )
+            )
+            dbLoggingProcess.start()
     
     return user_verification_details
 
@@ -509,7 +571,7 @@ def get_user_count() -> int:
             print("Error in executing the query for get_user_count : ",e)
     return usercount
 
-def insert_feedback(username : str, user_email : str, rating : str, feedback : str, page : str ) -> int:
+def insert_feedback(username : str, user_email : str, rating : str, feedback : str, page : str, transaction_id: str ) -> int:
     '''
     Function to insert user feedback into the database
     Arguments:
@@ -536,7 +598,25 @@ def insert_feedback(username : str, user_email : str, rating : str, feedback : s
             r = 0
         except Exception as e:
             #print(query)
-            print("Error in executing the query for insert_feedback : ",e)
+            # print("Error in executing the query for insert_feedback : ",e)
+            dbLoggingProcess = Process(
+                target = log_failed_transaction,
+                args = (
+                    transaction_id,
+                    "insert_feedback",
+                    str(datetime.now()),
+                    json.dumps({
+                        "username": username,
+                        "user_email": user_email,
+                        "rating": rating,
+                        "feedback": feedback,
+                        "page": page
+                    }),
+                    str(e),
+                    ""
+                )
+            )
+            dbLoggingProcess.start()
             
     return r
 
@@ -1006,7 +1086,7 @@ def delete_new_user(email : str)->str:
             r = """ ERROR: {} """.format(e)
     return r
 
-def user_registration(uid, username, email, api_key, company_name, company_role ) -> dict:
+def user_registration(uid, username, email, api_key, company_name, company_role, transaction_id ) -> dict:
     '''
     Function to streamline the user's registration process
     Arguments:
@@ -1016,23 +1096,46 @@ def user_registration(uid, username, email, api_key, company_name, company_role 
         api_key     : user's api key
     Returns :
         dict : will return the registration status. 
-               Keyword is "status" , if 0 then it means successful, else failure. 
+               Keyword is "STATUS" , if 0 then it means successful, else failure. 
                The negative int will denote at whch level it failed.
     '''
-    user_registration = register_user(uid, username, email, company_name, company_role)
-    if user_registration == 0:
-        api_registration = register_api_key(uid, email, api_key)
-        if api_registration == 0:
-            return {"status":"SUCCESS"}
+    try:
+        user_registration = register_user(uid, username, email, company_name, company_role, transaction_id)
+        if user_registration == 0:
+            api_registration = register_api_key(uid, email, api_key, transaction_id)
+            if api_registration == 0:
+                return {"STATUS":"SUCCESS"}
+            else:
+                #async process
+                deleteUserProcess = Process(
+                    target=delete_new_user, args=(email)
+                )
+                deleteUserProcess.start()
+
+                return {"STATUS":"DB Error in api registration for the user."}
         else:
-            #async process
-            deleteUserProcess = Process(
-                target=delete_new_user, args=(email)
+            return {"STATUS":"DB Error in creating new user."}
+    
+    except Exception as e:
+        dbLoggingProcess = Process(
+                target = log_failed_transaction,
+                args = (
+                    transaction_id,
+                    "user_registration",
+                    str(datetime.now()),
+                    json.dumps({
+                        "user_id": uid,
+                        "username": username,
+                        "email": email,
+                        "organisation": company_name,
+                        "user_designation": company_role,
+                    }),
+                    str(e),
+                    ""
+                )
             )
-            deleteUserProcess.start()
-            return {"status":"ERROR in api registration for the user."}
-    else:
-        return {"status":"ERROR in creating new user."}
+        dbLoggingProcess.start()
+        return {"STATUS": "DB Error in user-registration function"}
 
 def delete_char_ID(char_id : str ) -> str :
     '''
@@ -1177,7 +1280,7 @@ def insert_interaction_prompt_data( prompt : str, temperature : float, max_token
             print("Error in executing the query for insert_interaction_prompt_data : ",e)
     return r
 
-def get_user_details(email : str)->dict:
+def get_user_details(email : str, transaction_id: str)->dict:
     '''
     Function to retrieve user details.
     Return sample :
@@ -1188,7 +1291,9 @@ def get_user_details(email : str)->dict:
     'organisation': None, 
     'user_designation': None}
     '''
-    r=-1
+    r={
+        "count": -1
+    }
     GET_USER_DETAILS = """SELECT * FROM user_details WHERE email = '{}'; """
     with connect_to_database(1) as conn :
         try:
@@ -1196,12 +1301,28 @@ def get_user_details(email : str)->dict:
             query_results = execute_and_return_results(query,conn)
             if len(query_results)>0:
                 r = query_results[0]
+            elif len(query_results) == 0:
+                r["count"] = 0
         except Exception as e:
             #print(query)
-            print("Error in executing the query for get_chat_history : ",e)
+            # print("Error in executing the query for get_chat_history : ",e)
+            dbLoggingProcess = Process(
+                target = log_failed_transaction,
+                args = (
+                    transaction_id,
+                    "user_details",
+                    str(datetime.now()),
+                    json.dumps({
+                        "email": email,
+                    }),
+                    str(e),
+                    ""
+                )
+            )
+            dbLoggingProcess.start()
     return r
 
-def user_update(email : str, username : str, company_name : str, company_role: str):
+def user_update(email : str, username : str, company_name : str, company_role: str, transaction_id: str):
     '''
     Function to update user details in the table user_details.
     Returns :
@@ -1224,10 +1345,27 @@ def user_update(email : str, username : str, company_name : str, company_role: s
             s="SUCCESS"
         except Exception as e:
             #print(query)
-            print("Error in executing the query for get_chat_history : ",e)
-            s="ERROR : "+str(e)
+            # print("Error in executing the query for get_chat_history : ",e)
+            dbLoggingProcess = Process(
+                target = log_failed_transaction,
+                args = (
+                    transaction_id,
+                    "user_update",
+                    str(datetime.now()),
+                    json.dumps({
+                        "username": username,
+                        "email": email,
+                        "organisation": company_name,
+                        "user_designation": company_role,
+                    }),
+                    str(e),
+                    ""
+                )
+            )
+            dbLoggingProcess.start()
+            s="DB Error : "+str(e)
 
-    return {"status":s}
+    return {"STATUS":s}
 
 def get_character_emotions(charID : str ) -> list:
     '''
@@ -1250,7 +1388,7 @@ def get_character_emotions(charID : str ) -> list:
             print("Error in executing the query for get_character_emotions : ",e)
     return r
 
-def update_api_key(email:str, api_key:str)->dict:
+def update_api_key(email:str, api_key:str, transaction_id: str)->dict:
     '''
     Function to register the new api_key for the user at the backend.
 
@@ -1295,7 +1433,22 @@ def update_api_key(email:str, api_key:str)->dict:
             r = 0
         except Exception as e:
             #print(query)
-            print("Error in executing the query for update_api_key : ",e)
+            # print("Error in executing the query for update_api_key : ",e)
+            dbLoggingProcess = Process(
+                target = log_failed_transaction,
+                args = (
+                    transaction_id,
+                    "update-api_key",
+                    str(datetime.now()),
+                    json.dumps({
+                        "email": email,
+                        "api_key": api_key,
+                    }),
+                    str(e),
+                    ""
+                )
+            )
+            dbLoggingProcess.start()
             error = e
     return {
             "api_key": api_key,
@@ -1304,12 +1457,12 @@ def update_api_key(email:str, api_key:str)->dict:
            }
 
 
-def update_convai_verification_status(email:str, verification_state: str ) -> dict:
+def update_convai_verification_status(email:str, verification_state: str, transaction_id: str ) -> dict:
     '''
     Funtion to update the convai_verified status of the user after successful verification.
     Returns: 
     {
-        'status': 'SUCCESS'
+        'STATUS': 'SUCCESS'
     }
     '''
 
@@ -1327,10 +1480,25 @@ def update_convai_verification_status(email:str, verification_state: str ) -> di
 
         except Exception as e:
             #print(query)
-            print("Error in executing the query to update convai_verified attribute for the following user ",e)
+            dbLoggingProcess = Process(
+                target = log_failed_transaction,
+                args = (
+                    transaction_id,
+                    "update_convai_verification_status",
+                    str(datetime.now()),
+                    json.dumps({
+                        "email": email,
+                        "verification_state": verification_state
+                    }),
+                    str(e),
+                    ""
+                )
+            )
+            dbLoggingProcess.start()
+            # print("Error in executing the query to update convai_verified attribute for the following user ",e)
             s="ERROR : "+str(e)
 
-    return {"status":s}
+    return {"STATUS":s}
 
 def get_conversations_from_db(sessionID : str, conversationContextLevel: int)->list:
     '''
