@@ -1,30 +1,31 @@
 # Local imports
 import uuid
-import logging
+# import logging
 
 # third party imports
-import google.cloud.logging
-from google.cloud.logging.handlers import CloudLoggingHandler
+from google.cloud import logging
+# from google.cloud.logging.handlers import CloudLoggingHandler
 from google.logging.type import log_severity_pb2 as severity
 
 logName = "convai-database-logging"
 
 
 # Create a handler for Google Cloud Logging.
-gcloudLoggingClient = google.cloud.logging.Client()
-gcloudLoggingHandler = CloudLoggingHandler(
-    gcloudLoggingClient, name=logName
-)
+gcloudLoggingClient = logging.Client()
+# gcloudLoggingHandler = CloudLoggingHandler(
+#     gcloudLoggingClient, name=logName
+# )
 
 # Create a stream handler to log messages to the console.
-streamHandler = logging.StreamHandler()
-streamHandler.setLevel(logging.WARNING)
+# streamHandler = logging.StreamHandler()
+# streamHandler.setLevel(logging.WARNING)
 
 # Now create a logger and add the handlers:
-logger = logging.getLogger(logName)
-logger.setLevel(logging.DEBUG)
-logger.addHandler(gcloudLoggingHandler)
-logger.addHandler(streamHandler)
+# logger = logging.getLogger(logName)
+# logger.setLevel(logging.DEBUG)
+# logger.addHandler(gcloudLoggingHandler)
+# logger.addHandler(streamHandler)
+logger = gcloudLoggingClient.logger(logName)
 
 def log_success_transaction(
     transactionID: str,
