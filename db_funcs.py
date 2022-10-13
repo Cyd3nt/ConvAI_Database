@@ -1219,7 +1219,12 @@ def get_voice_for_character(charID : str)-> str :
     '''
     #r = character_voice_cache.get(charID)
     #if r is None:
-    r  = character_voice_cache_redisclient.get(charID)
+
+    if redis_enable_flag:
+        r  = character_voice_cache_redisclient.get(charID)
+    else:
+        r  = None
+
     if r is None:
         GET_CHARACTER_VOICE = """ SELECT voice_type FROM all_characters WHERE character_id = '{}';"""
         r = "-1"
@@ -1229,8 +1234,10 @@ def get_voice_for_character(charID : str)-> str :
                 query_results = execute_and_return_results(query,conn)
                 if len(query_results)>0:
                     r = query_results[0]["voice_type"]
+                    
                     #character_voice_cache.add(charID, r)
-                    character_voice_cache_redisclient.add(charID, r)
+                    if redis_enable_flag:
+                        character_voice_cache_redisclient.add(charID, r)
             except Exception as e:
                 print("Error in executing the query for get_voice_for_character : ",e)
     #else:
