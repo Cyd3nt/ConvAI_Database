@@ -1,6 +1,7 @@
 #Built-ins
 from multiprocessing import Process
 import re
+import os
 import json
 from datetime import datetime
 
@@ -23,14 +24,20 @@ user_id_cache             = conv_local_cache(256)
 api_key_cache             = conv_local_cache(256)
 
 #redis cache
-character_name_cache_redisclient         = conv_redis_cache(2)
-character_backstory_cache_redisclient    = conv_redis_cache(3)
-character_voice_cache_redisclient        = conv_redis_cache(6)
-character_action_cache_redisclient       = conv_redis_cache(7)
-user_id_cache_redisclient                = conv_redis_cache(4)
-word_list_cache_redisclient              = conv_redis_cache(8)
-api_key_cache_redisclient                = conv_redis_cache(5)
-chat_history_cache_redisclient           = conv_redis_cache(9)
+redis_enable_flag = os.environ.get('ENABLE_REDIS',True)
+if redis_enable_flag is not None:
+    if (isinstance(redis_enable_flag, str) and redis_enable_flag.lower().strip() == "true") or redis_enable_flag :
+        redis_enable_flag = True
+        character_name_cache_redisclient         = conv_redis_cache(2)
+        character_backstory_cache_redisclient    = conv_redis_cache(3)
+        character_voice_cache_redisclient        = conv_redis_cache(6)
+        character_action_cache_redisclient       = conv_redis_cache(7)
+        user_id_cache_redisclient                = conv_redis_cache(4)
+        word_list_cache_redisclient              = conv_redis_cache(8)
+        api_key_cache_redisclient                = conv_redis_cache(5)
+        chat_history_cache_redisclient           = conv_redis_cache(9)
+    else:
+        redis_enable_flag = False
 
 def register_user(user_id : str, username : str, email : str, company_name : str, company_role : str, transaction_id: str = "default") -> int:
     '''
@@ -540,9 +547,10 @@ def insert_new_character(
                 #character_voice_cache.add(char_id, voice_type)
                 #character_actions_cache.add(char_id, actions_list)
 
-                character_name_cache_redisclient.add(char_id, character_name)
-                character_voice_cache_redisclient.add(char_id, voice_type)
-                character_action_cache_redisclient.set_list(char_id, actions_list)
+                if redis_enable_flag:
+                    character_name_cache_redisclient.add(char_id, character_name)
+                    character_voice_cache_redisclient.add(char_id, voice_type)
+                    character_action_cache_redisclient.set_list(char_id, actions_list)
 
         except Exception as e:
             #print(query)
@@ -745,9 +753,10 @@ def update_character_details(updated_data_dict : dict ) -> int :
             #character_voice_cache.update(updated_data_dict['character_id'], updated_data_dict['voice_type'])
             #character_actions_cache.update(updated_data_dict['character_id'],action_list)
 
-            character_name_cache_redisclient.update(updated_data_dict['character_id'],updated_data_dict['character_name'])
-            character_voice_cache_redisclient.update(updated_data_dict['character_id'], updated_data_dict['voice_type'])
-            character_action_cache_redisclient.set_list(updated_data_dict['character_id'],action_list)
+            if redis_enable_flag:
+                character_name_cache_redisclient.update(updated_data_dict['character_id'],updated_data_dict['character_name'])
+                character_voice_cache_redisclient.update(updated_data_dict['character_id'], updated_data_dict['voice_type'])
+                character_action_cache_redisclient.set_list(updated_data_dict['character_id'],action_list)
 
         except Exception as e:
             #print(query)
@@ -898,7 +907,11 @@ def get_character_name(char_id : str) -> str:
     '''
     r = character_name_cache.get(char_id)
     if r is None:
-        r = character_name_cache_redisclient.get(char_id)
+        if redis_enable_flag:
+            r = character_name_cache_redisclient.get(char_id)
+        else:
+            r = None
+        
         if r is None:
             r = "-1"
             GET_CHARACTER_NAME = """ SELECT  character_name FROM all_characters WHERE character_id = '{}' ;"""
@@ -909,7 +922,9 @@ def get_character_name(char_id : str) -> str:
                     if len(query_results)>0:
                         r = query_results[0]["character_name"]
                         character_name_cache.add(char_id, r)
-                        character_name_cache_redisclient.add(char_id, r)
+                        
+                        if redis_enable_flag:
+                            character_name_cache_redisclient.add(char_id, r)
                 except Exception as e:
                     print("Error in executing the query for get_character_name : ",e)
         else:
