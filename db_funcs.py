@@ -945,7 +945,12 @@ def get_user_ID(api_key : str) -> str:
     '''
     r = user_id_cache.get(api_key)
     if r is None:
-        r = user_id_cache_redisclient.get(api_key)
+        
+        if redis_enable_flag:
+            r = user_id_cache_redisclient.get(api_key)
+        else:
+            r = None
+        
         if r is None:
             r = "-1"
             RETRIEVE_USERID = """ SELECT user_id FROM api_map WHERE api_key = '{}'; """
@@ -956,7 +961,8 @@ def get_user_ID(api_key : str) -> str:
                     if len(query_results)>0:
                         r = query_results[0]["user_id"]
                         user_id_cache.add(api_key,r)
-                        user_id_cache_redisclient.add(api_key,r)
+                        if redis_enable_flag:
+                            user_id_cache_redisclient.add(api_key,r)
                 except Exception as e:
                     print("Error in executing the query for get_user_ID : ",e)
         else:
