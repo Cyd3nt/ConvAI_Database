@@ -1254,7 +1254,12 @@ def get_character_actions(charID : str) -> list :
     '''
     #r = character_actions_cache.get(charID)
     #if r is None:
-    r = character_action_cache_redisclient.get_list(charID)
+    
+    if redis_enable_flag:
+        r = character_action_cache_redisclient.get_list(charID)
+    else:
+        r = None
+    
     if r is None:
         GET_CHARACTER_ACTIONS = """ SELECT character_actions FROM all_characters WHERE character_id = '{}';"""
         r = []
@@ -1264,8 +1269,10 @@ def get_character_actions(charID : str) -> list :
                 query_results = execute_and_return_results(query,conn)
                 if len(query_results)>0:
                     r = query_results[0]["character_actions"]
+                    
                     #character_actions_cache.add(charID,r)
-                    character_action_cache_redisclient.set_list(charID,r)
+                    if redis_enable_flag:
+                        character_action_cache_redisclient.set_list(charID,r)
             except Exception as e:
                 print("Error in executing the query for get_character_actions : ",e)
     #    else:
