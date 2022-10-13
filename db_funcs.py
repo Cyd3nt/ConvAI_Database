@@ -27,6 +27,7 @@ api_key_cache             = conv_local_cache(256)
 redis_enable_flag = os.environ.get('ENABLE_REDIS',True)
 if redis_enable_flag is not None:
     if (isinstance(redis_enable_flag, str) and redis_enable_flag.lower().strip() == "true") or redis_enable_flag :
+        print('REDIS CACHE is set to : True')
         redis_enable_flag = True
         character_name_cache_redisclient         = conv_redis_cache(2)
         character_backstory_cache_redisclient    = conv_redis_cache(3)
@@ -37,6 +38,7 @@ if redis_enable_flag is not None:
         api_key_cache_redisclient                = conv_redis_cache(5)
         chat_history_cache_redisclient           = conv_redis_cache(9)
     else:
+        print('REDIS CACHE is set to : False')
         redis_enable_flag = False
 
 def register_user(user_id : str, username : str, email : str, company_name : str, company_role : str, transaction_id: str = "default") -> int:
