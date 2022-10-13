@@ -678,7 +678,9 @@ def update_character_metadata(char_id : str, backstory : str, doc_store_file_lin
             #print("Query executed successfully")
             r = 0
             #character_backstory_cache.update(char_id, backstory)
-            character_backstory_cache_redisclient.update(char_id, backstory)
+
+            if redis_enable_flag:
+                character_backstory_cache_redisclient.update(char_id, backstory)
 
         except Exception as e:
             #print(query)
@@ -907,6 +909,7 @@ def get_character_name(char_id : str) -> str:
     '''
     r = character_name_cache.get(char_id)
     if r is None:
+        
         if redis_enable_flag:
             r = character_name_cache_redisclient.get(char_id)
         else:
@@ -925,6 +928,7 @@ def get_character_name(char_id : str) -> str:
                         
                         if redis_enable_flag:
                             character_name_cache_redisclient.add(char_id, r)
+                        
                 except Exception as e:
                     print("Error in executing the query for get_character_name : ",e)
         else:
@@ -1060,7 +1064,11 @@ def get_backstory(char_id : str) -> str:
     '''
     #r = character_backstory_cache.get(char_id)
     #if r is None:
-    r = character_backstory_cache_redisclient.get(char_id)
+    if redis_enable_flag:
+        r = character_backstory_cache_redisclient.get(char_id)
+    else:
+        r = None
+    
     if r is None:
         r = "-1"
         GET_CHARACTER_BACKSTORY = """ SELECT backstory FROM character_metadata WHERE character_id = '{}' AND version=0;"""
@@ -1070,8 +1078,11 @@ def get_backstory(char_id : str) -> str:
                 query_results = execute_and_return_results(query,conn)
                 if len(query_results)>0:
                     r = query_results[0]["backstory"]
+                    
                     #character_backstory_cache.add(char_id,r)
-                    character_backstory_cache_redisclient.add(char_id,r)
+                    
+                    if redis_enable_flag:
+                        character_backstory_cache_redisclient.add(char_id,r)
             except Exception as e:
                 print("Error in executing the query for get_backstory : ",e)
     #else:
