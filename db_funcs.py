@@ -1575,15 +1575,14 @@ def get_conversations_from_db(sessionID : str, conversationContextLevel: int, ch
     Function to retrieve a fix set of conversations from the database. The number of conversations to be retrieved from the database is specified by the conversationContextLevel parameter.
     '''
     r = []
-    with connect_to_database(1) as conn :
-        try:
-            r = get_chat_history(char_id, user_id, session_id)
-            if len(r)>conversationContextLevel:
-                conversationContextLevel = -1 * conversationContextLevel
-                r = r[conversationContextLevel : ]
-        except Exception as e:
-            #print(query)
-            print("Error in executing the query for get_conversations_from_db : ",e)
+    try:
+        r = get_chat_history(char_id, user_id, session_id)
+        if len(r)>conversationContextLevel:
+            conversationContextLevel = -1 * conversationContextLevel
+            r = r[conversationContextLevel : ]
+    except Exception as e:
+        #print(query)
+        print("Error in executing the query for get_conversations_from_db : ",e)
     return r 
 
 def get_character_id_from_name(char_name : str) -> str:
