@@ -12,6 +12,7 @@ from ConvAI_Database.db_utilities import connect_to_database, execute_and_return
 from main.global_resources.caching_resources.conv_redis_cache import conv_redis_cache
 
 remove_special_character01 = lambda a : a.replace("'","''")
+remove_special_character10 = lambda a : a.replace("''","'")
 remove_multi_new_line_characters = lambda a : re.sub(r'(\n\s*)+\n', '\n\n', a)
 
 #local caches
@@ -527,8 +528,10 @@ def insert_new_character(
     with connect_to_database(1) as conn:
         try:
             state_names = [remove_special_character01(state) for state in state_names]
-            character_actions = [remove_special_character01(action) for action in character_actions]
+            
             actions_list = character_actions.copy()
+            character_actions = [remove_special_character01(action) for action in character_actions]
+            
             character_emotions = [remove_special_character01(emotion) for emotion in character_emotions]
 
             state_names = "{" + ",".join(state_names) + "}"
@@ -536,7 +539,9 @@ def insert_new_character(
             character_actions = "{" + ",".join(character_actions) + "}"
             character_emotions = "{" + ",".join(character_emotions) + "}"
             
+            character_name_org = character_name
             character_name = remove_special_character01(character_name)
+            
             collection_name = remove_special_character01(collection_name)
 
             query01 = INSERT_CHARACTER_INTO_ALLCHARACTERS.format(character_name, collection_name, user_id, model_type, state_names, state_links, listing, voice_type, voice_pitch, blockchain, contract_address, mint_address, owner_address, character_actions, character_emotions)
@@ -554,7 +559,7 @@ def insert_new_character(
                 #character_actions_cache.add(char_id, actions_list)
 
                 if redis_enable_flag:
-                    character_name_cache_redisclient.add(char_id, character_name)
+                    character_name_cache_redisclient.add(char_id, character_name_org)
                     character_voice_cache_redisclient.add(char_id, voice_type)
                     character_action_cache_redisclient.set_list(char_id, actions_list)
 
@@ -675,6 +680,7 @@ def update_character_metadata(char_id : str, backstory : str, doc_store_file_lin
     r = -1
     with connect_to_database(1) as conn :
         try:
+            b_org = backstory
             backstory = remove_special_character01(backstory)
 
             query = INSERT_BACKSTORY.format(char_id, char_id, backstory, doc_store_file_link, characteristics)
@@ -686,7 +692,7 @@ def update_character_metadata(char_id : str, backstory : str, doc_store_file_lin
             #character_backstory_cache.update(char_id, backstory)
 
             if redis_enable_flag:
-                character_backstory_cache_redisclient.update(char_id, backstory)
+                character_backstory_cache_redisclient.update(char_id, b_org)
 
         except Exception as e:
             #print(query)
@@ -723,6 +729,7 @@ def update_character_details(updated_data_dict : dict ) -> int :
     
     with connect_to_database(1) as conn:
         try:
+            character_name_org = updated_data_dict['character_name']
             updated_data_dict['character_name'] = remove_special_character01(updated_data_dict['character_name'])
             updated_data_dict['collection_name'] = remove_special_character01(updated_data_dict['collection_name'])
                                                     
@@ -757,12 +764,12 @@ def update_character_details(updated_data_dict : dict ) -> int :
             cursor_obj.close()
             r =0
 
-            character_name_cache.update(updated_data_dict['character_id'],updated_data_dict['character_name'])
+            character_name_cache.update(updated_data_dict['character_id'],character_name_org)
             #character_voice_cache.update(updated_data_dict['character_id'], updated_data_dict['voice_type'])
             #character_actions_cache.update(updated_data_dict['character_id'],action_list)
 
             if redis_enable_flag:
-                character_name_cache_redisclient.update(updated_data_dict['character_id'],updated_data_dict['character_name'])
+                character_name_cache_redisclient.update(updated_data_dict['character_id'],character_name_org)
                 character_voice_cache_redisclient.update(updated_data_dict['character_id'], updated_data_dict['voice_type'])
                 character_action_cache_redisclient.set_list(updated_data_dict['character_id'],action_list)
 
@@ -1005,6 +1012,9 @@ def write_to_chat_history(char_id : str, user_id : str, user_query: str, bot_tex
 
     with connect_to_database(1) as conn :
         try:
+            user_query_org = user_query
+            bot_text_org = bot_text
+
             user_query = remove_special_character01(user_query)
             bot_text = remove_special_character01(bot_text)
 
@@ -1020,11 +1030,11 @@ def write_to_chat_history(char_id : str, user_id : str, user_query: str, bot_tex
                 #print('chat cache : ',chats)
 
                 if chats is not None or isinstance(chats,list):
-                    o = {'user_query' : user_query, 'response' : bot_text }
+                    o = {'user_query' : user_query_org, 'response' : bot_text_org }
                     chats.append(o)
                 else:
                     chats=[]
-                    o = {'user_query' : user_query, 'response' : bot_text }
+                    o = {'user_query' : user_query_org, 'response' : bot_text_org }
                     chats.append(o)
                 #print(chats)
                 chat_history_cache_redisclient.set_chat_list(session_id, chats)
@@ -1576,7 +1586,7 @@ def get_conversations_from_db(sessionID : str, conversationContextLevel: int, ch
     '''
     r = []
     try:
-        r = get_chat_history(char_id, user_id, session_id)
+        r = get_chat_history(char_id, user_id, sessionID)
         if len(r)>conversationContextLevel:
             conversationContextLevel = -1 * conversationContextLevel
             r = r[conversationContextLevel : ]
